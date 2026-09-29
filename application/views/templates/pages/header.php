@@ -81,7 +81,7 @@ $menu = [
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="<?= aset('assets/css/yayasan.css'); ?>">
+<link rel="stylesheet" href="<?= base_url('assets/css/yayasan.css?v=' . time()); ?>">
 </head>
 
 <body>
@@ -150,7 +150,7 @@ $menu = [
                  Tempat paling menonjol di kepala halaman semestinya untuk
                  pengunjung, sedangkan yang membuka panel cuma beberapa orang
                  dan mereka sudah tahu letaknya. -->
-            <a class="tbl tbl--garis tbl--kecil kepala__admin" href="<?= base_url('masuk'); ?>">
+            <a class="tbl tbl--garis tbl--kecil kepala__admin" href="<?= base_url('auth'); ?>">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="4" y="10.5" width="16" height="10" rx="2"/>

@@ -2,26 +2,19 @@
 defined('BASEPATH') or exit('No direct script access allowed');
 
 /* ============================================================================
-   PROFIL YAYASAN (MANAJEMEN KONTEN)
-   Data: $data_konten (id_konten, judul_konten, sub_judul_konten, isi_konten,
-   jenis_konten). Aksi: admin/add_konten, admin/update_konten,
-   admin/delete_konten.
-
-   Kolom jenis_konten di database bertipe ENUM dengan tujuh nilai persis di
-   bawah ini, dan controller menolak dua konten dengan jenis yang sama. Karena
-   itu halaman ini disusun per jenis: tujuh kartu tetap, masing-masing terisi
-   atau kosong. Admin langsung melihat bagian mana yang belum diisi, dan tidak
-   akan tersandung pesan "jenis konten sudah ada".
+   KELOLA PROFIL TK
+   Tabel konten_tk — struktur sama seperti konten yayasan, tapi khusus TK.
+   Jenis: sambutan, visi, misi, kurikulum, program, kontak, alamat
    ========================================================================== */
 
 $jenis = [
-    'legalitas'   => ['Legalitas',   'Akta pendirian, pengesahan, dan perubahannya', 'Halaman Profil'],
-    'visi'        => ['Visi',        'Arah jangka panjang yayasan',                  'Halaman Profil'],
-    'misi'        => ['Misi',        'Langkah untuk mewujudkan visi',                'Halaman Profil'],
-    'nilai'       => ['Nilai',       'Nilai-nilai yang dipegang, misalnya TESIS',    'Halaman Profil'],
-    'operasional' => ['Operasional', 'Tata kelola dan cara yayasan dijalankan',      'Halaman Profil'],
-    'kontak'      => ['Kontak',      'Telepon, surel, dan jam layanan',              'Halaman Kontak'],
-    'alamat'      => ['Alamat',      'Alamat kantor yayasan',                        'Halaman Kontak'],
+    'sambutan'  => ['Sambutan Kepala Sekolah', 'Kata sambutan dari kepala TK',     'Halaman Profil'],
+    'visi'      => ['Visi',                    'Arah jangka panjang TK',            'Halaman Profil'],
+    'misi'      => ['Misi',                    'Langkah untuk mewujudkan visi TK',  'Halaman Profil'],
+    'kurikulum' => ['Kurikulum',               'Kurikulum dan pendekatan belajar',  'Halaman Program'],
+    'program'   => ['Program Unggulan',        'Kegiatan dan program khusus TK',    'Halaman Program'],
+    'kontak'    => ['Kontak',                  'Telepon dan info kontak TK',        'Halaman Kontak'],
+    'alamat'    => ['Alamat',                  'Alamat lokasi TK',                  'Halaman Kontak'],
 ];
 
 $per_jenis = [];
@@ -41,7 +34,7 @@ $terisi = count(array_intersect_key($per_jenis, $jenis));
 
 <div class="kepala">
     <div class="kepala__teks">
-        <p>Isi halaman Profil dan Kontak situs yayasan. Setiap bagian hanya boleh punya satu isi —
+        <p>Isi halaman Profil, Program, dan Kontak situs TK. Setiap bagian hanya boleh punya satu isi —
            <strong><?= $terisi; ?> dari <?= count($jenis); ?></strong> bagian sudah terisi.</p>
     </div>
 </div>
@@ -69,7 +62,7 @@ $terisi = count(array_intersect_key($per_jenis, $jenis));
                     <div class="aksi">
                         <button type="button" class="tbl tbl--garis tbl--kecil" data-buka="dialogUbah" data-rekam="k<?= (int) $k['id_konten']; ?>"><?= adm_ikon('ubah', 14); ?> Ubah</button>
                         <button type="button" class="ikon-tbl ikon-tbl--hapus" title="Hapus" aria-label="Hapus konten <?= adm_e($j[0]); ?>"
-                                data-hapus="<?= base_url('admin/delete_konten/'); ?>"
+                                data-hapus="<?= base_url('admin-tk/delete_konten'); ?>"
                                 data-kirim='<?= adm_e(adm_json(['id_konten' => $k['id_konten']])); ?>'
                                 data-judul="Hapus isi bagian <?= adm_e($j[0]); ?>?"
                                 data-ket="Bagian ini akan kosong di situs sampai diisi lagi."
@@ -100,8 +93,8 @@ $terisi = count(array_intersect_key($per_jenis, $jenis));
 <script type="application/json" id="data-halaman"><?= adm_json($rekam); ?></script>
 
 <dialog class="dialog dialog--lebar" id="dialogTambah" aria-labelledby="judulTambah">
-    <form action="<?= base_url('admin/add_konten/'); ?>" method="post" data-kosongkan data-sukses="Bagian profil sudah diisi.">
-        <?= adm_kepala_dialog('Isi bagian profil', '', 'judulTambah'); ?>
+    <form action="<?= base_url('admin-tk/add_konten'); ?>" method="post" data-kosongkan data-sukses="Bagian profil TK sudah diisi.">
+        <?= adm_kepala_dialog('Isi bagian profil TK', '', 'judulTambah'); ?>
         <div class="dialog__isi">
             <div class="baris-bidang">
                 <div class="bidang">
@@ -135,8 +128,8 @@ $terisi = count(array_intersect_key($per_jenis, $jenis));
 </dialog>
 
 <dialog class="dialog dialog--lebar" id="dialogUbah" aria-labelledby="judulUbah">
-    <form action="<?= base_url('admin/update_konten/'); ?>" method="post" data-sukses="Perubahan profil sudah disimpan.">
-        <?= adm_kepala_dialog('Ubah bagian profil', '', 'judulUbah'); ?>
+    <form action="<?= base_url('admin-tk/update_konten'); ?>" method="post" data-sukses="Perubahan profil TK sudah disimpan.">
+        <?= adm_kepala_dialog('Ubah bagian profil TK', '', 'judulUbah'); ?>
         <div class="dialog__isi">
             <input type="hidden" name="id_konten">
             <div class="baris-bidang">

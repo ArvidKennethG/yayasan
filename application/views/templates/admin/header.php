@@ -1,342 +1,329 @@
+<?php
+defined('BASEPATH') or exit('No direct script access allowed');
+
+/* ============================================================================
+   KERANGKA PANEL ADMIN — BAGIAN ATAS
+   ----------------------------------------------------------------------------
+   Dipanggil controller Admin.php apa adanya: load->view('./templates/admin/
+   header', $data). Tidak ada controller yang perlu diubah.
+
+   Berkas ini juga memuat fungsi bantu kecil yang dipakai semua halaman admin.
+   Ditaruh di sini karena header selalu dimuat paling awal.
+   ========================================================================== */
+
+if (!function_exists('adm_e')) {
+    /**
+     * Mencetak teks dengan aman.
+     *
+     * Controller lama menyimpan judul lewat htmlspecialchars() sebelum masuk
+     * database, jadi sebagian data sudah berbentuk "&amp;". Kalau langsung
+     * di-escape lagi, layar akan menampilkan "&amp;amp;". Maka didekode dulu,
+     * baru di-escape sekali.
+     */
+    function adm_e($s)
+    {
+        return htmlspecialchars(html_entity_decode((string) $s, ENT_QUOTES | ENT_HTML5, 'UTF-8'), ENT_QUOTES, 'UTF-8');
+    }
+
+    /** Teks polos dari isi berformat HTML, dipotong di batas kata. */
+    function adm_ringkas($html, $n = 120)
+    {
+        $t = preg_replace('~<(script|style)\b[^>]*>.*?</\1>~is', ' ', (string) $html);
+        // Akhir paragraf, butir daftar, dan baris baru diberi spasi dulu, supaya
+        // kata di dua paragraf berbeda tidak menempel setelah tag dibuang.
+        $t = preg_replace('~<(br|/p|/li|/h[1-6]|/div|/tr|/td|/blockquote)\b[^>]*>~i', ' ', $t);
+        $t = html_entity_decode(strip_tags($t), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $t = trim(preg_replace('/\s+/u', ' ', $t));
+        if (mb_strlen($t, 'UTF-8') <= $n) { return $t; }
+        $t = mb_substr($t, 0, $n, 'UTF-8');
+        $sp = mb_strrpos($t, ' ', 0, 'UTF-8');
+        return rtrim($sp > $n * 0.6 ? mb_substr($t, 0, $sp, 'UTF-8') : $t, " ,.;:") . '…';
+    }
+
+    /** Tanggal gaya Indonesia: 3 Sep 2026, 10.44 */
+    function adm_tgl($dt, $jam = TRUE)
+    {
+        if (empty($dt) || strpos((string) $dt, '0000') === 0) { return '—'; }
+        $w = strtotime($dt);
+        if (!$w) { return '—'; }
+        $b = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        $s = date('j', $w) . ' ' . $b[(int) date('n', $w)] . ' ' . date('Y', $w);
+        return $jam ? $s . ', ' . date('H.i', $w) : $s;
+    }
+
+    /** Jumlah baris, aman walau tabelnya belum ada di database. */
+    function adm_hitung($tabel, $where = NULL)
+    {
+        $CI =& get_instance();
+        if (!$CI->db->table_exists($tabel)) { return NULL; }
+        if ($where) { $CI->db->where($where); }
+        return (int) $CI->db->count_all_results($tabel);
+    }
+
+    /** ID video YouTube dari tautan bentuk apa pun, atau string kosong. */
+    function adm_yt($url)
+    {
+        return preg_match('~(?:youtu\.be/|youtube(?:-nocookie)?\.com/(?:watch\?(?:.*&)?v=|embed/|shorts/|live/|v/))([A-Za-z0-9_-]{11})~', (string) $url, $m) ? $m[1] : '';
+    }
+
+    /** Kelas warna untuk label status. */
+    function adm_warna_status($status)
+    {
+        $peta = [
+            'Baru' => 'biru', 'Dihubungi' => 'kuning', 'Diterima' => 'hijau', 'Ditolak' => 'merah',
+            'Belum Dibaca' => 'merah', 'Sudah Dibaca' => 'kuning', 'Dibalas' => 'hijau',
+            'Aktif' => 'hijau', 'Unsubscribed' => '',
+        ];
+        return isset($peta[$status]) ? $peta[$status] : '';
+    }
+
+    /** JSON yang aman ditaruh di dalam <script type="application/json">. */
+    function adm_json($data)
+    {
+        return json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /** Mendekode entitas HTML di setiap nilai teks rekaman untuk dialog. */
+    function adm_dekode(array $r)
+    {
+        foreach ($r as $k => $v) {
+            if (is_string($v) && $k !== 'isi_berita' && $k !== 'isi_konten' && $k !== 'deskripsi') {
+                $r[$k] = html_entity_decode($v, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+        }
+        return $r;
+    }
+
+    /** Nomor WhatsApp: 0812... menjadi 62812... */
+    function adm_wa($no)
+    {
+        return preg_replace('/^0/', '62', preg_replace('/[^0-9]/', '', (string) $no));
+    }
+
+    /**
+     * Kotak unggah gambar dengan pratinjau.
+     * Nama field ($name) harus sama persis dengan yang dibaca controller.
+     */
+    function adm_unggah($name, $wajib, $petunjuk = 'JPG atau PNG, maksimal 5 MB.', $bulat = FALSE)
+    {
+        $id = 'u_' . $name . '_' . substr(md5(uniqid('', TRUE)), 0, 6);
+        return '<div class="unggah" data-maks="5">'
+            . '<span class="unggah__pratinjau"' . ($bulat ? ' style="width:64px;border-radius:50%"' : '') . '>' . adm_ikon('foto', 22) . '</span>'
+            . '<span class="unggah__teks"><strong>' . ($wajib ? 'Pilih gambar' : 'Ganti gambar (opsional)') . '</strong>'
+            . 'Klik atau seret berkas ke sini. ' . htmlspecialchars($petunjuk, ENT_QUOTES, 'UTF-8')
+            . '<span class="unggah__nama">' . ($wajib ? 'Belum ada berkas dipilih' : 'Kosongkan kalau gambarnya tidak diganti') . '</span></span>'
+            . '<input type="file" id="' . $id . '" name="' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . '" accept=".jpg,.jpeg,.png"' . ($wajib ? ' required' : '') . ' aria-label="Berkas gambar">'
+            . '</div>';
+    }
+
+    /** Kepala dialog: judul, keterangan, dan tombol tutup. */
+    function adm_kepala_dialog($judul, $ket = '', $id_judul = '')
+    {
+        return '<div class="dialog__kepala"><div>'
+            . '<h2' . ($id_judul ? ' id="' . $id_judul . '"' : '') . ' data-tampil="_judul">' . htmlspecialchars($judul, ENT_QUOTES, 'UTF-8') . '</h2>'
+            . ($ket ? '<p>' . htmlspecialchars($ket, ENT_QUOTES, 'UTF-8') . '</p>' : '')
+            . '</div><button type="button" class="dialog__tutup" data-tutup aria-label="Tutup">' . adm_ikon('tutup', 18) . '</button></div>';
+    }
+
+    /** Ikon garis sederhana, sewarna teks di sekitarnya. */
+    function adm_ikon($nama, $u = 18)
+    {
+        $p = [
+            'dasbor'   => '<rect x="3" y="3" width="7.5" height="9" rx="1.2"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="1.2"/><rect x="13.5" y="11.5" width="7.5" height="9.5" rx="1.2"/><rect x="3" y="15" width="7.5" height="6" rx="1.2"/>',
+            'berita'   => '<path d="M4.5 4h11A1.5 1.5 0 0 1 17 5.5V19a1.5 1.5 0 0 0 1.5 1.5H5.5A1.5 1.5 0 0 1 4 19V4.5"/><path d="M17 8h2.5v11a1.5 1.5 0 0 1-3 0"/><path d="M7.5 8h6M7.5 11.5h6M7.5 15h3.5"/>',
+            'galeri'   => '<rect x="3" y="4.5" width="18" height="15" rx="1.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m4 17.5 4.5-4.5 3.5 3.5 3-3 5 5"/>',
+            'video'    => '<rect x="2.5" y="5" width="19" height="14" rx="1.5"/><path d="m10 9.2 5 2.8-5 2.8z"/>',
+            'struktur' => '<rect x="9" y="3" width="6" height="5" rx="1"/><rect x="2.5" y="16" width="6" height="5" rx="1"/><rect x="15.5" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M5.5 16v-2.5h13V16"/>',
+            'konten'   => '<path d="M14 3H7a1.5 1.5 0 0 0-1.5 1.5v15A1.5 1.5 0 0 0 7 21h10a1.5 1.5 0 0 0 1.5-1.5V7.5z"/><path d="M14 3v4.5h4.5M9 12.5h6M9 16h4"/>',
+            'daftar'   => '<rect x="4.5" y="3.5" width="15" height="17" rx="1.5"/><path d="M9 3.5V5h6V3.5M8.5 10h7M8.5 13.5h7M8.5 17h4"/>',
+            'sd'       => '<path d="M4 19V6.5A1.5 1.5 0 0 1 5.5 5H11v14H5.5A1.5 1.5 0 0 0 4 20.5"/><path d="M20 19V6.5A1.5 1.5 0 0 0 18.5 5H13v14h5.5a1.5 1.5 0 0 1 1.5 1.5"/>',
+            'tk'       => '<path d="M5 20v-8.5L12 5l7 6.5V20"/><path d="M9.5 20v-5h5v5"/><circle cx="12" cy="10.5" r="1.3"/>',
+            'pesan'    => '<rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="m3.5 6 8.5 7 8.5-7"/>',
+            'surat'    => '<path d="M4 8.5 12 4l8 4.5v10A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5z"/><path d="m4 8.5 8 5 8-5"/>',
+            'cadangan' => '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v6c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-6"/><path d="M4.5 11.5v6c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-6"/>',
+            'katalog'  => '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19"/>',
+            'situs'    => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3z"/>',
+            'keluar'   => '<path d="M9.5 20.5h-4A1.5 1.5 0 0 1 4 19V5a1.5 1.5 0 0 1 1.5-1.5h4"/><path d="m15.5 16.5 4.5-4.5-4.5-4.5M20 12H9.5"/>',
+            'tambah'   => '<path d="M12 5v14M5 12h14"/>',
+            'ubah'     => '<path d="M15.5 4.5 19.5 8.5 8.5 19.5H4.5v-4z"/><path d="m13.5 6.5 4 4"/>',
+            'hapus'    => '<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5A1.5 1.5 0 0 0 9 21h6a1.5 1.5 0 0 0 1.5-1.5L17.5 7"/><path d="M10 11v6M14 11v6"/>',
+            'lihat'    => '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+            'cari'     => '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+            'tutup'    => '<path d="M6 6l12 12M18 6 6 18"/>',
+            'unduh'    => '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14"/>',
+            'wa'       => '<path d="M4 20l1.2-4.1A8 8 0 1 1 8.3 19z"/><path d="M9 9.2c0 3 2.8 5.8 5.8 5.8l1.2-1.4-2-1-1 .8c-1-.4-2-1.4-2.4-2.4l.8-1-1-2z"/>',
+            'balas'    => '<path d="M10 8 5 12.5 10 17"/><path d="M5 12.5h9a5 5 0 0 1 5 5V19"/>',
+            'foto'     => '<rect x="3" y="4.5" width="18" height="15" rx="1.5"/><circle cx="12" cy="12" r="3.5"/><path d="M8 4.5 9.5 2.5h5L16 4.5"/>',
+            'awas'     => '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.5h.01"/>',
+            'salin'    => '<rect x="8.5" y="8.5" width="12" height="12" rx="1.5"/><path d="M15.5 8.5V5A1.5 1.5 0 0 0 14 3.5H5A1.5 1.5 0 0 0 3.5 5v9A1.5 1.5 0 0 0 5 15.5h3.5"/>',
+            'jam'      => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+            'orang'    => '<circle cx="12" cy="8" r="4"/><path d="M4 20.5c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>',
+            'grafik'   => '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+            'tautan'   => '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7L11.5 6.8"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.5-1.5"/>',
+            'main'     => '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>',
+            'menu'     => '<path d="M4 7h16M4 12h16M4 17h16"/>',
+            'bawah'    => '<path d="m6 9 6 6 6-6"/>',
+            'saring'   => '<path d="M3.5 5h17l-6.5 8v6l-4-2v-4z"/>',
+        ];
+        $d = isset($p[$nama]) ? $p[$nama] : $p['konten'];
+        return '<svg width="' . (int) $u . '" height="' . (int) $u . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $d . '</svg>';
+    }
+}
+
+/* ------------------------------------------------------------------ PERAN */
+$peran    = (string) $this->session->userdata('role');
+$pengguna = (string) $this->session->userdata('username');
+$menu     = isset($menu) ? $menu : '';
+
+$peran_super = in_array($peran, ['default', 'administrator'], TRUE);
+$peran_unit  = in_array($peran, ['admin_tk', 'admin_sd', 'admin_smp', 'admin_sma', 'admin_ucb'], TRUE);
+
+$label_peran = [
+    'default' => 'Administrator Utama', 'administrator' => 'Administrator', 'katalog' => 'Pengelola Katalog',
+    'admin_tk' => 'Admin TK', 'admin_sd' => 'Admin SD', 'admin_smp' => 'Admin SMP', 'admin_sma' => 'Admin SMA', 'admin_ucb' => 'Admin UCB',
+];
+
+/* ------------------------------------------------------------ LENCANA MENU */
+/* Angka kecil di samping menu: berapa pendaftar yang belum diproses dan pesan
+   yang belum dibaca. Supaya admin langsung tahu ada pekerjaan tanpa membuka
+   halamannya satu per satu. */
+$lencana = [];
+if ($peran_super || $peran_unit) {
+    $lencana['pendaftaran_terpadu'] = adm_hitung('pendaftaran', ['status' => 'Baru']);
+}
+if ($peran_super) {
+    $lencana['pesan_kontak'] = adm_hitung('pesan_kontak', ['status' => 'Belum Dibaca']);
+}
+
+/* ------------------------------------------------------------------- MENU */
+/* Susunan ini mengikuti hak akses yang sudah diperiksa controller:
+   - default & administrator : semua menu
+   - admin_tk, admin_sd, dst : dasbor dan pendaftaran
+   - katalog & peran lain    : kelola katalog saja (seperti versi lama)
+
+   Menu PPDB SD dan PPDB TK sudah dihapus atas permintaan. Keduanya membaca
+   tabel lama `pendaftaran_sd` dan `pendaftaran_tk` peninggalan subsitus TK/SD,
+   sedangkan pendaftaran yang berjalan sekarang semuanya lewat tabel
+   `pendaftaran` di halaman Pendaftaran. */
+$grup = [];
+if ($peran_super) {
+    $grup['Utama'] = [
+        'dashboard'           => ['Dasbor', 'admin', 'dasbor'],
+        'pendaftaran_terpadu' => ['Pendaftaran', 'admin/pendaftaran_terpadu', 'daftar'],
+    ];
+    $grup['Konten Situs'] = [
+        'berita'              => ['Berita', 'admin/berita', 'berita'],
+        'galeri'              => ['Galeri Foto', 'admin/galeri', 'galeri'],
+        'video_kegiatan'      => ['Video Kegiatan', 'admin/video_kegiatan', 'video'],
+        'struktur_organisasi' => ['Struktur Organisasi', 'admin/struktur_organisasi', 'struktur'],
+        'manajemen_konten'    => ['Profil Yayasan', 'admin/manajemen_konten', 'konten'],
+    ];
+    $grup['Komunikasi'] = [
+        'pesan_kontak' => ['Pesan Masuk', 'admin/pesan_kontak', 'pesan'],
+        'newsletter'   => ['Newsletter', 'admin/newsletter', 'surat'],
+    ];
+    $grup['Sistem'] = [
+        'backup' => ['Cadangan Data', 'admin/backup', 'cadangan'],
+    ];
+} elseif ($peran_unit) {
+    $grup['Utama'] = [
+        'dashboard'           => ['Dasbor', 'admin', 'dasbor'],
+        'pendaftaran_terpadu' => ['Pendaftaran', 'admin/pendaftaran_terpadu', 'daftar'],
+    ];
+} else {
+    $grup['Katalog'] = ['katalog' => ['Kelola Katalog', 'katalog', 'katalog']];
+}
+
+$judul_halaman = [
+    'dashboard' => 'Dasbor', 'berita' => 'Berita', 'galeri' => 'Galeri Foto', 'video_kegiatan' => 'Video Kegiatan',
+    'struktur_organisasi' => 'Struktur Organisasi', 'manajemen_konten' => 'Profil Yayasan',
+    'pendaftaran_terpadu' => 'Pendaftaran', 'pendaftaran_sd' => 'PPDB SD (lama)', 'pendaftaran_tk' => 'PPDB TK (lama)',
+    'pesan_kontak' => 'Pesan Masuk', 'newsletter' => 'Newsletter', 'backup' => 'Cadangan Data',
+];
+$judul = isset($judul_halaman[$menu]) ? $judul_halaman[$menu] : 'Panel Admin';
+$kelompok = '';
+foreach ($grup as $nama_grup => $isi) { if (isset($isi[$menu])) { $kelompok = $nama_grup; } }
+
+$inisial = strtoupper(mb_substr($pengguna !== '' ? $pengguna : 'A', 0, 1, 'UTF-8'));
+$logo    = base_url('assets/templates/media/logos/logo-cbim.png');
+$v_css   = @filemtime(FCPATH . 'assets/admin/admin.css') ?: '1';
+?>
 <!DOCTYPE html>
-<html lang="en">
-<!--begin::Head-->
-
+<html lang="id">
 <head>
-    <base href="" />
-    <title>
-        Yayasan CBIM
-    </title>
-    <link rel="shortcut icon" href="<?= base_url(); ?>assets/templates/media/logos/logo-cbim.png" />
-    <meta name="description" content="Yayasan Citra Bina Insan Mandiri (YCBIM) - Membawahi Universitas Citra Bangsa (UCB), SMA K Citra Bangsa, SMP K Citra Bangsa, SD K Citra Bangsa, dan Tk K Citra Bangsa." />
-    <meta name="keywords" content="Yayasan, Citra Bina Insan Mandiri (YCBIM), Universitas Citra Bangsa (UCB), SMA K Citra Bangsa, SMP K Citra Bangsa, SD K Citra Bangsa, Tk K Citra Bangsa." />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta charset="utf-8" />
-    <meta property="og:locale" content="en_US" />
-    <meta property="og:type" content="article" />
-    <meta property="og:title" content="Yayasan Citra Bina Insan Mandiri - YCBIM" />
-    <meta property="og:url" content="https://www.cbim.or.id/yayasan/" />
-    <meta property="og:site_name" content="Yayasan | CBIM" />
-    <link rel="canonical" href="https://www.cbim.or.id/yayasan/" />
-    <!-- <link rel="shortcut icon" href="<?= base_url(); ?>assets/templates/media/logos/logo-cbim.png" /> -->
-    <!--begin::Fonts-->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700" />
-    <!--end::Fonts-->
-    <!--begin::Page Vendor Stylesheets(used by this page)-->
-    <link href="<?= base_url(); ?>assets/templates/plugins/custom/fullcalendar/fullcalendar.bundle.css" rel="stylesheet" type="text/css" />
-    <!--end::Page Vendor Stylesheets-->
-    <!--begin::Global Stylesheets Bundle(used by all pages)-->
-    <link href="<?= base_url(); ?>assets/templates/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css" />
-    <link href="<?= base_url(); ?>assets/templates/css/style.bundle.css" rel="stylesheet" type="text/css" />
-    <!--end::Global Stylesheets Bundle-->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.2/styles/dracula.min.css">
-
-    <!-- begin::Datatables -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" />
-    <!-- end::Datatables -->
-
-    <!-- charts -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-    <!-- <script src="<?= base_url(); ?>assets/templates/js/gauge.min.js"></script> -->
-
-    <!-- Ckeditor -->
-    <script src="https://cdn.ckeditor.com/ckeditor5/41.0.0/classic/ckeditor.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title><?= adm_e($judul); ?> — Panel Admin Yayasan CBIM</title>
+<link rel="icon" href="<?= $logo; ?>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="<?= base_url('assets/admin/admin.css?v=' . $v_css); ?>">
 </head>
-<!--end::Head-->
-<!--begin::Body-->
+<body>
 
-<body id="kt_body" class="header-fixed header-tablet-and-mobile-fixed toolbar-enabled toolbar-fixed aside-enabled aside-fixed">
-    <!--begin::Main-->
-    <!--begin::Page-->
-    <div class="page d-flex flex-row flex-column-fluid">
-        <!--begin::Aside-->
-        <div id="kt_aside" class="aside pb-5 pt-5 pt-lg-0" data-kt-drawer="true" data-kt-drawer-name="aside" data-kt-drawer-activate="{default: true, lg: false}" data-kt-drawer-overlay="true" data-kt-drawer-width="{default:'80px', '300px': '100px'}" data-kt-drawer-direction="start" data-kt-drawer-toggle="#kt_aside_mobile_toggle">
-            <!--begin::Brand-->
-            <div class="aside-logo py-8" id="kt_aside_logo">
-                <!--begin::Logo-->
-                <a href="<?= base_url('admin/'); ?>" class="d-flex align-items-center">
-                    <img alt="Logo" src="<?= base_url(); ?>assets/templates/media/logos/logo-cbim.png" class="h-45px logo" />
-                </a>
-                <!--end::Logo-->
-            </div>
-            <!--end::Brand-->
-            <!--begin::Aside menu-->
-            <div class="aside-menu flex-column-fluid" id="kt_aside_menu">
-                <!--begin::Aside Menu-->
-                <div class="hover-scroll-overlay-y my-2 my-lg-5 pe-lg-n1" id="kt_aside_menu_wrapper" data-kt-scroll="true" data-kt-scroll-height="auto" data-kt-scroll-dependencies="#kt_aside_logo, #kt_aside_footer" data-kt-scroll-wrappers="#kt_aside, #kt_aside_menu" data-kt-scroll-offset="5px">
-                    <!--begin::Menu-->
-                         <?php if ($this->session->userdata('role') != 'default') { ?>
-                           <div class="menu menu-column menu-title-gray-700 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold" id="#kt_aside_menu" data-kt-menu="true">
-                        <div class="menu-item py-2">
-                            <a class="menu-link menu-center <?= $menu == 'galeri' ? 'active' : ''; ?>" href="<?= base_url('katalog') ?>" data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
-                                <span class="menu-icon me-0">
-                                    <i class="bi bi-images fs-2"></i>
-                                </span>
-                                <span class="menu-title text-center">Kelola Katalog</span>
-                            </a>
-                        </div>
-                    </div>
-        <?php }else{ ?>
-                    <div class="menu menu-column menu-title-gray-700 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold" id="#kt_aside_menu" data-kt-menu="true">
-                        <div class="menu-item py-2">
-                            <a class="menu-link menu-center <?= $menu == 'dashboard' ? 'active' : ''; ?>" href="<?= base_url('admin/'); ?>" data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
-                                <span class="menu-icon me-0">
-                                    <i class="bi bi-house fs-2"></i>
-                                </span>
-                                <span class="menu-title text-center">Dashboard</span>
-                            </a>
-                        </div>
-                    </div>
-                    <div class="menu menu-column menu-title-gray-700 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold" id="#kt_aside_menu" data-kt-menu="true">
-                        <div class="menu-item py-2">
-                            <a class="menu-link menu-center <?= $menu == 'struktur_organisasi' ? 'active' : ''; ?>" href="<?= base_url('admin/struktur_organisasi') ?>" data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
-                                <span class="menu-icon me-0">
-                                    <i class="bi bi-app fs-2"></i>
-                                </span>
-                                <span class="menu-title text-center">Struktur Organisasi</span>
-                            </a>
-                        </div>
-                    </div>
-                    <div class="menu menu-column menu-title-gray-700 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold" id="#kt_aside_menu" data-kt-menu="true">
-                        <div class="menu-item py-2">
-                            <a class="menu-link menu-center <?= $menu == 'manajemen_konten' ? 'active' : ''; ?>" href="<?= base_url('admin/manajemen_konten') ?>" data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
-                                <span class="menu-icon me-0">
-                                    <i class="bi bi-gear fs-2"></i>
-                                </span>
-                                <span class="menu-title text-center">Manajemen Konten</span>
-                            </a>
-                        </div>
-                    </div>
-                    <div class="menu menu-column menu-title-gray-700 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold" id="#kt_aside_menu" data-kt-menu="true">
-                        <div class="menu-item py-2">
-                            <a class="menu-link menu-center <?= $menu == 'video_kegiatan' ? 'active' : ''; ?>" href="<?= base_url('admin/video_kegiatan') ?>" data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
-                                <span class="menu-icon me-0">
-                                    <i class="bi bi-play fs-2"></i>
-                                </span>
-                                <span class="menu-title text-center">Video Kegiatan</span>
-                            </a>
-                        </div>
-                    </div>
-                    <div class="menu menu-column menu-title-gray-700 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold" id="#kt_aside_menu" data-kt-menu="true">
-                        <div class="menu-item py-2">
-                            <a class="menu-link menu-center <?= $menu == 'berita' ? 'active' : ''; ?>" href="<?= base_url('admin/berita') ?>" data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
-                                <span class="menu-icon me-0">
-                                    <i class="bi bi-book fs-2"></i>
-                                </span>
-                                <span class="menu-title text-center">Berita</span>
-                            </a>
-                        </div>
-                    </div>
-                    <div class="menu menu-column menu-title-gray-700 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold" id="#kt_aside_menu" data-kt-menu="true">
-                        <div class="menu-item py-2">
-                            <a class="menu-link menu-center <?= $menu == 'galeri' ? 'active' : ''; ?>" href="<?= base_url('admin/galeri') ?>" data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
-                                <span class="menu-icon me-0">
-                                    <i class="bi bi-images fs-2"></i>
-                                </span>
-                                <span class="menu-title text-center">Galeri</span>
-                            </a>
-                        </div>
-                    </div>
-                    <div class="menu menu-column menu-title-gray-700 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold" id="#kt_aside_menu" data-kt-menu="true">
-                        <div class="menu-item py-2">
-                            <a class="menu-link menu-center <?= $menu == 'pendaftaran_sd' ? 'active' : ''; ?>" href="<?= base_url('admin/pendaftaran_sd') ?>" data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
-                                <span class="menu-icon me-0">
-                                    <i class="bi bi-mortarboard fs-2"></i>
-                                </span>
-                                <span class="menu-title text-center">PPDB SD</span>
-                            </a>
-                        </div>
-                    </div>
-                    <div class="menu menu-column menu-title-gray-700 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold" id="#kt_aside_menu" data-kt-menu="true">
-                        <div class="menu-item py-2">
-                            <a class="menu-link menu-center <?= $menu == 'pendaftaran_tk' ? 'active' : ''; ?>" href="<?= base_url('admin/pendaftaran_tk') ?>" data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
-                                <span class="menu-icon me-0">
-                                    <i class="bi bi-stars fs-2"></i>
-                                </span>
-                                <span class="menu-title text-center">PPDB TK</span>
-                            </a>
-                        </div>
-                    </div>
+<div class="tirai" id="tirai"></div>
 
-                    <!-- INT-03: PPDB Terpadu -->
-                    <div class="menu menu-column menu-title-gray-700 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold" id="#kt_aside_menu" data-kt-menu="true">
-                        <div class="menu-item py-2">
-                            <a class="menu-link menu-center <?= $menu == 'pendaftaran_terpadu' ? 'active' : ''; ?>" href="<?= base_url('admin/pendaftaran_terpadu') ?>" data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
-                                <span class="menu-icon me-0">
-                                    <i class="bi bi-person-check fs-2"></i>
-                                </span>
-                                <span class="menu-title text-center">PPDB Terpadu</span>
-                            </a>
-                        </div>
-                    </div>
+<div class="tata">
+    <aside class="sisi" id="sisi" aria-label="Menu panel admin">
+        <a class="sisi__merek" href="<?= base_url('admin'); ?>">
+            <img src="<?= $logo; ?>" alt="">
+            <span>
+                <strong>Yayasan CBIM</strong>
+                <small>Panel Admin</small>
+            </span>
+        </a>
 
-                    <!-- BE-07: Pesan Masuk Kontak -->
-                    <div class="menu menu-column menu-title-gray-700 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold" id="#kt_aside_menu" data-kt-menu="true">
-                        <div class="menu-item py-2">
-                            <a class="menu-link menu-center <?= $menu == 'pesan_kontak' ? 'active' : ''; ?>" href="<?= base_url('admin/pesan_kontak') ?>" data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
-                                <span class="menu-icon me-0">
-                                    <i class="bi bi-chat-left-dots fs-2"></i>
-                                </span>
-                                <span class="menu-title text-center">Pesan Kontak</span>
-                            </a>
-                        </div>
-                    </div>
+        <?php foreach ($grup as $nama_grup => $isi): ?>
+            <nav class="sisi__grup" aria-label="<?= adm_e($nama_grup); ?>">
+                <div class="sisi__judul"><?= adm_e($nama_grup); ?></div>
+                <?php foreach ($isi as $kunci => $m): ?>
+                    <a class="sisi__tautan" href="<?= base_url($m[1]); ?>"<?= $menu === $kunci ? ' aria-current="page"' : ''; ?>>
+                        <?= adm_ikon($m[2]); ?>
+                        <span><?= adm_e($m[0]); ?></span>
+                        <?php if (!empty($lencana[$kunci])): ?>
+                            <span class="sisi__lencana" title="<?= (int) $lencana[$kunci]; ?> belum diproses"><?= (int) $lencana[$kunci]; ?></span>
+                        <?php endif; ?>
+                    </a>
+                <?php endforeach; ?>
+            </nav>
+        <?php endforeach; ?>
 
-                    <!-- INT-04: Newsletter Subscribers -->
-                    <div class="menu menu-column menu-title-gray-700 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold" id="#kt_aside_menu" data-kt-menu="true">
-                        <div class="menu-item py-2">
-                            <a class="menu-link menu-center <?= $menu == 'newsletter' ? 'active' : ''; ?>" href="<?= base_url('admin/newsletter') ?>" data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
-                                <span class="menu-icon me-0">
-                                    <i class="bi bi-envelope-paper fs-2"></i>
-                                </span>
-                                <span class="menu-title text-center">Newsletter</span>
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- BE-08: Backup Sistem -->
-                    <div class="menu menu-column menu-title-gray-700 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold" id="#kt_aside_menu" data-kt-menu="true">
-                        <div class="menu-item py-2">
-                            <a class="menu-link menu-center <?= $menu == 'backup' ? 'active' : ''; ?>" href="<?= base_url('admin/backup') ?>" data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
-                                <span class="menu-icon me-0">
-                                    <i class="bi bi-shield-lock fs-2"></i>
-                                </span>
-                                <span class="menu-title text-center">Backup Sistem</span>
-                            </a>
-                        </div>
-                    </div>
-                  
-                         
-                    <?php }?>
-                    <!--end::Menu-->
-                </div>
-                <!--end::Aside Menu-->
-            </div>
-            <!--end::Aside menu-->
-            <!--begin::Footer-->
-            <div class="aside-footer flex-column-auto" id="kt_aside_footer">
-                <!--begin::Menu-->
-                <div class="d-flex justify-content-center">
-                    <button type="button" class="btn btm-sm btn-icon btn-active-color-primary" data-kt-menu-trigger="click" data-kt-menu-overflow="true" data-kt-menu-placement="top-start" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-dismiss="click">
-                        <!--begin::Svg Icon | path: icons/duotune/general/gen008.svg-->
-                        <!-- <span class="svg-icon svg-icon-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                <path d="M3 2H10C10.6 2 11 2.4 11 3V10C11 10.6 10.6 11 10 11H3C2.4 11 2 10.6 2 10V3C2 2.4 2.4 2 3 2Z" fill="black" />
-                                <path opacity="0.3" d="M14 2H21C21.6 2 22 2.4 22 3V10C22 10.6 21.6 11 21 11H14C13.4 11 13 10.6 13 10V3C13 2.4 13.4 2 14 2Z" fill="black" />
-                                <path opacity="0.3" d="M3 13H10C10.6 13 11 13.4 11 14V21C11 21.6 10.6 22 10 22H3C2.4 22 2 21.6 2 21V14C2 13.4 2.4 13 3 13Z" fill="black" />
-                                <path opacity="0.3" d="M14 13H21C21.6 13 22 13.4 22 14V21C22 21.6 21.6 22 21 22H14C13.4 22 13 21.6 13 21V14C13 13.4 13.4 13 14 13Z" fill="black" />
-                            </svg>
-                        </span> -->
-                        <!--end::Svg Icon-->
-                    </button>
-                </div>
-                <!--end::Menu-->
-            </div>
-            <!--end::Footer-->
+        <div class="sisi__kaki">
+            <a class="sisi__tautan" href="<?= base_url(); ?>" target="_blank" rel="noopener"><?= adm_ikon('situs'); ?> <span>Lihat situs</span></a>
+            <a class="sisi__tautan" href="<?= base_url('logout'); ?>"><?= adm_ikon('keluar'); ?> <span>Keluar</span></a>
         </div>
-        <!--end::Aside-->
-        <!--begin::Wrapper-->
-        <div class="wrapper d-flex flex-column flex-row-fluid" id="kt_wrapper">
-            <!--begin::Header-->
-            <div id="kt_header" class="header align-items-stretch">
-                <!--begin::Container-->
-                <div class="container-fluid d-flex align-items-stretch justify-content-between">
-                    <!--begin::Aside mobile toggle-->
-                    <div class="d-flex align-items-center d-lg-none ms-n1 me-2" title="Show aside menu">
-                        <div class="btn btn-icon btn-active-color-primary w-30px h-30px w-md-40px h-md-40px" id="kt_aside_mobile_toggle">
-                            <!--begin::Svg Icon | path: icons/duotune/abstract/abs015.svg-->
-                            <span class="svg-icon svg-icon-2x mt-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                    <path d="M21 7H3C2.4 7 2 6.6 2 6V4C2 3.4 2.4 3 3 3H21C21.6 3 22 3.4 22 4V6C22 6.6 21.6 7 21 7Z" fill="black" />
-                                    <path opacity="0.3" d="M21 14H3C2.4 14 2 13.6 2 13V11C2 10.4 2.4 10 3 10H21C21.6 10 22 10.4 22 11V13C22 13.6 21.6 14 21 14ZM22 20V18C22 17.4 21.6 17 21 17H3C2.4 17 2 17.4 2 18V20C2 20.6 2.4 21 3 21H21C21.6 21 22 20.6 22 20Z" fill="black" />
-                                </svg>
-                            </span>
-                            <!--end::Svg Icon-->
-                        </div>
-                    </div>
-                    <!--end::Aside mobile toggle-->
-                    <!--begin::Mobile logo-->
-                    <div class="d-flex align-items-center flex-grow-1 flex-lg-grow-0">
-                        <a href="<?= base_url(); ?>/demo6/dist/index.html" class="d-lg-none">
-                            <img alt="Logo" src="<?= base_url(); ?>assets/templates/media/logos/logo-cbim.png" class="h-30px" />
-                        </a>
-                    </div>
-                    <!--end::Mobile logo-->
-                    <!--begin::Wrapper-->
-                    <div class="d-flex align-items-stretch justify-content-between flex-lg-grow-1">
-                        <!--begin::Navbar-->
-                        <div class="d-flex align-items-stretch" id="kt_header_nav">
-                            <!--begin::Menu wrapper-->
-                            <div class="header-menu align-items-stretch" data-kt-drawer="true" data-kt-drawer-name="header-menu" data-kt-drawer-activate="{default: true, lg: false}" data-kt-drawer-overlay="true" data-kt-drawer-width="{default:'200px', '300px': '250px'}" data-kt-drawer-direction="end" data-kt-drawer-toggle="#kt_header_menu_mobile_toggle" data-kt-swapper="true" data-kt-swapper-mode="prepend" data-kt-swapper-parent="{default: '#kt_body', lg: '#kt_header_nav'}">
-                            </div>
-                            <!--end::Menu wrapper-->
-                        </div>
-                        <!--end::Navbar-->
-                        <!--begin::Topbar-->
-                        <div class="d-flex align-items-stretch flex-shrink-0">
-                            <!--begin::Toolbar wrapper-->
-                            <div class="d-flex align-items-stretch flex-shrink-0">
-                                <!--begin::User-->
-                                <div class="d-flex align-items-center ms-1 ms-lg-3" id="kt_header_user_menu_toggle">
-                                    <!--begin::Menu wrapper-->
-                                    <div class="cursor-pointer symbol symbol-30px symbol-md-40px" data-kt-menu-trigger="click" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
-                                        <img src="<?= base_url(); ?>assets/templates/media/avatars/150-26.jpg" alt="image" />
-                                    </div>
-                                    <!--begin::Menu-->
-                                    <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg menu-state-primary fw-bold py-4 fs-6 w-275px" data-kt-menu="true">
-                                        <!--begin::Menu item-->
-                                        <div class="menu-item px-3">
-                                            <div class="menu-content d-flex align-items-center px-3">
-                                                <!--begin::Avatar-->
-                                                <div class="symbol symbol-50px me-5">
-                                                    <img alt="Logo" src="<?= base_url(); ?>assets/templates/media/avatars/150-26.jpg" />
-                                                </div>
-                                                <!--end::Avatar-->
-                                                <!--begin::Username-->
-                                                <div class="d-flex flex-column">
-                                                    <div class="fw-bolder d-flex align-items-center fs-5">
-                                                        <?= $this->session->userdata('username'); ?>
-                                                        <span class="badge badge-light-success fw-bolder fs-8 px-2 py-1 ms-2">.</span>
-                                                    </div>
-                                                </div>
-                                                <!--end::Username-->
-                                            </div>
-                                        </div>
-                                        <!--end::Menu item-->
-                                        <!--begin::Menu separator-->
-                                        <div class="separator my-2"></div>
-                                        <!--end::Menu separator-->
-                                        <!--begin::Menu item-->
-                                        <div class="menu-item px-5">
-                                            <a href="<?= base_url(); ?>logout" class="menu-link px-5">Sign Out</a>
-                                        </div>
-                                        <!--end::Menu item-->
-                                        <!--begin::Menu separator-->
-                                        <div class="separator my-2"></div>
-                                        <!--end::Menu separator-->
-                                    </div>
-                                    <!--end::Menu-->
-                                    <!--end::Menu wrapper-->
-                                </div>
-                                <!--end::User -->
-                            </div>
-                            <!--end::Toolbar wrapper-->
-                        </div>
-                        <!--end::Topbar-->
-                    </div>
-                    <!--end::Wrapper-->
-                </div>
-                <!--end::Container-->
+    </aside>
+
+    <div class="utama">
+        <header class="atas">
+            <button type="button" class="tombol-sisi" id="tombolSisi" aria-label="Buka menu" aria-expanded="false" aria-controls="sisi">
+                <?= adm_ikon('menu', 20); ?>
+            </button>
+            <div>
+                <p class="atas__jejak">
+                    <a href="<?= base_url('admin'); ?>">Panel Admin</a><?php if ($kelompok && $kelompok !== 'Utama'): ?> &rsaquo; <?= adm_e($kelompok); ?><?php endif; ?>
+                </p>
+                <h1 class="atas__judul"><?= adm_e($judul); ?></h1>
             </div>
-            <!--end::Header-->
-            <!--begin::Toolbar-->
-            <div class="toolbar py-2" id="kt_toolbar">
-                <!--begin::Container-->
-                <div id="kt_toolbar_container" class="container-fluid d-flex align-items-center">
+            <div class="atas__kanan">
+                <div class="akun">
+                    <button type="button" class="akun__tombol" id="akunTombol" aria-haspopup="true" aria-expanded="false" aria-controls="akunMenu">
+                        <span class="akun__bulat" aria-hidden="true"><?= adm_e($inisial); ?></span>
+                        <span class="akun__nama">
+                            <?= adm_e($pengguna); ?>
+                            <small><?= adm_e(isset($label_peran[$peran]) ? $label_peran[$peran] : $peran); ?></small>
+                        </span>
+                        <?= adm_ikon('bawah', 14); ?>
+                    </button>
+                    <div class="akun__menu" id="akunMenu" hidden>
+                        <a href="<?= base_url(); ?>" target="_blank" rel="noopener"><?= adm_ikon('situs', 16); ?> Lihat situs yayasan</a>
+                        <hr>
+                        <a href="<?= base_url('logout'); ?>"><?= adm_ikon('keluar', 16); ?> Keluar</a>
+                    </div>
                 </div>
-                <!--end::Container-->
             </div>
-            <!--end::Toolbar-->
+        </header>
+
+        <main class="ruang" id="isi">

@@ -78,7 +78,7 @@
             <span>
                 <?= html_escape(isset($pengaturan['teks_footer']) ? $pengaturan['teks_footer'] : ''); ?>
                 &nbsp;&middot;&nbsp;
-                <a href="<?= base_url('masuk'); ?>">Masuk Admin</a>
+                <a href="<?= base_url('auth'); ?>">Masuk Admin</a>
             </span>
         </div>
     </div>

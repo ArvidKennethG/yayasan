@@ -1,135 +1,122 @@
+<?php
+defined('BASEPATH') or exit('No direct script access allowed');
+
+/* ============================================================================
+   HALAMAN MASUK PANEL ADMIN
+   Dipanggil Auth::index(). Formulir dikirim ke auth/login dengan field
+   username dan password, sama seperti versi lama.
+
+   Pesan "Login gagal!" dari controller tampil sebagai notifikasi melayang,
+   kotak masuk bergoyang sebentar, dan kursor langsung ditaruh di kolom
+   password — yang paling sering salah ketik.
+   ========================================================================== */
+
+$pesan_sukses = (string) $this->session->flashdata('success');
+$pesan_galat  = (string) $this->session->flashdata('error');
+$this->session->unset_userdata(['success', 'error']);
+$bersih = function ($s) { return trim(html_entity_decode(strip_tags($s), ENT_QUOTES, 'UTF-8')); };
+
+$logo  = base_url('assets/templates/media/logos/logo-cbim.png');
+$v_css = @filemtime(FCPATH . 'assets/admin/admin.css') ?: '1';
+$v_js  = @filemtime(FCPATH . 'assets/admin/admin.js') ?: '1';
+?>
 <!DOCTYPE html>
-<!--
-Author: Keenthemes
-Product Name: Metronic - Bootstrap 5 HTML, VueJS, React, Angular & Laravel Admin Dashboard Theme
-Purchase: https://1.envato.market/EA4JP
-Website: http://www.keenthemes.com
-Contact: support@keenthemes.com
-Follow: www.twitter.com/keenthemes
-Dribbble: www.dribbble.com/keenthemes
-Like: www.facebook.com/keenthemes
-License: For each use you must have a valid license purchased only from above link in order to legally use the theme for your project.
--->
-<html lang="en">
-<!--begin::Head-->
-
+<html lang="id">
 <head>
-    <base href="">
-    <title>Yayasan CBIM</title>
-    <meta name="description" content="The most advanced Bootstrap Admin Theme on Themeforest trusted by 94,000 beginners and professionals. Multi-demo, Dark Mode, RTL support and complete React, Angular, Vue &amp; Laravel versions. Grab your copy now and get life-time updates for free." />
-    <meta name="keywords" content="Metronic, bootstrap, bootstrap 5, Angular, VueJs, React, Laravel, admin themes, web design, figma, web development, free templates, free admin themes, bootstrap theme, bootstrap template, bootstrap dashboard, bootstrap dak mode, bootstrap button, bootstrap datepicker, bootstrap timepicker, fullcalendar, datatables, flaticon" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta charset="utf-8" />
-    <meta property="og:locale" content="en_US" />
-    <meta property="og:type" content="article" />
-    <meta property="og:title" content="Metronic - Bootstrap 5 HTML, VueJS, React, Angular &amp; Laravel Admin Dashboard Theme" />
-    <meta property="og:url" content="https://keenthemes.com/metronic" />
-    <meta property="og:site_name" content="Keenthemes | Metronic" />
-    <link rel="canonical" href="https://preview.keenthemes.com/metronic8" />
-    <link rel="shortcut icon" href="<?= base_url(); ?>assets/templates/media/logos/logo-cbim.png" />
-    <!--begin::Fonts-->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700" />
-    <!--end::Fonts-->
-    <!--begin::Global Stylesheets Bundle(used by all pages)-->
-    <link href="<?= base_url() ?>assets/templates/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css" />
-    <link href="<?= base_url() ?>assets/templates/css/style.bundle.css" rel="stylesheet" type="text/css" />
-    <!--end::Global Stylesheets Bundle-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Masuk — Panel Admin Yayasan CBIM</title>
+<link rel="icon" href="<?= $logo; ?>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="<?= base_url('assets/admin/admin.css?v=' . $v_css); ?>">
 </head>
-<!--end::Head-->
-<!--begin::Body-->
+<body>
 
-<body id="kt_body" data-bs-spy="scroll" data-bs-target="#kt_landing_menu" data-bs-offset="200" class="bg-white position-relative">
-    <!--begin::Main-->
-    <div class="d-flex flex-column flex-root">
-        <div class="d-flex flex-column flex-column-fluid bgi-position-y-bottom position-x-center bgi-no-repeat bgi-size-contain bgi-attachment-fixed"    >
-            <!-- <div class="d-flex flex-column flex-column-fluid bgi-position-y-bottom position-x-center bgi-no-repeat bgi-size-contain bgi-attachment-fixed" style="background-image: url(<?= base_url() ?>/assets/templates/media/illustrations/sketchy-1/14.png"> -->
-            <div class="d-flex flex-center flex-column flex-column-fluid p-10 pb-lg-20">
-                <a href="#" class="mb-6 text-center">
-                    <img alt="Logo" src="<?= base_url() ?>assets/templates/media/logos/logo-cbim.png" class="h-90px" />
-                    <h1>CBIM</h1>
-                </a>
-                <div class="w-lg-500px bg-body rounded shadow-sm p-10 p-lg-15 mx-auto">
-                    <form class="form w-100" action="<?= base_url('auth/login'); ?>" method="post">
-                        <div class="text-center mb-10">
-                            <h1 class="text-dark mb-3">LOG IN</h1>
-                        </div>
-                        <div class="fv-row mb-10">
-                            <label for="username" class="form-label fs-6 fw-bolder text-dark">Username</label>
-                            <input class="form-control form-control-lg form-control-solid" required type="text" name="username" id="username" autocomplete="off" />
-                        </div>
-                        <div class="fv-row mb-10">
-                            <div class="d-flex flex-stack mb-2">
-                                <label for="password" class="form-label fw-bolder text-dark fs-6 mb-0">Password</label>
-                            </div>
-                            <input class="form-control form-control-lg form-control-solid" required type="password" id="password" name="password" autocomplete="off" />
-                        </div>
-                        <div class="text-center">
-                            <button type="submit" id="kt_sign_in_submit" class="btn btn-lg btn-primary w-100 mb-5">
-                                <span class="indicator-label">Login</span>
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+<div class="masuk">
+    <aside class="masuk__sampul">
+        <a class="masuk__merek" href="<?= base_url(); ?>">
+            <img src="<?= $logo; ?>" alt="">
+            <span>
+                <strong>Yayasan Citra Bina<br>Insan Mandiri</strong>
+                <small>Kupang &middot; Sejak 2007</small>
+            </span>
+        </a>
+        <div class="masuk__kutip">
+            <span></span>
+            <h1>Panel pengelola situs yayasan</h1>
+            <p>Berita, galeri, video kegiatan, struktur organisasi, pendaftaran, dan pesan masuk — semuanya dikelola dari sini.</p>
         </div>
-    </div>
-    <!--end::Main-->
-    <script>
-        var hostUrl = "<?= base_url() ?>assets/templates/";
-    </script>
-    <!--begin::Javascript-->
-    <!--begin::Global Javascript Bundle(used by all pages)-->
-    <script src="<?= base_url() ?>assets/templates/plugins/global/plugins.bundless.js"></script>
-    <script src="<?= base_url() ?>assets/templates/js/scripts.bundle.js"></script>
-    <!--end::Global Javascript Bundle-->
-    <!--begin::Page Vendors Javascript(used by this page)-->
-    <script src="<?= base_url() ?>assets/templates/plugins/custom/fslightbox/fslightbox.bundle.js"></script>
-    <script src="<?= base_url() ?>assets/templates/plugins/custom/typedjs/typedjs.bundle.js"></script>
-    <!--end::Page Vendors Javascript-->
-    <!--begin::Page Custom Javascript(used by this page)-->
-    <script src="<?= base_url() ?>assets/templates/js/custom/landing.js"></script>
-    <!-- <script src="<?= base_url() ?>assets/templates/js/custom/pages/company/pricing.js"></script> -->
-    <!--end::Page Custom Javascript-->
+        <div class="masuk__kaki">&copy; <?= date('Y'); ?> Yayasan Citra Bina Insan Mandiri</div>
+    </aside>
 
-    <!--end::Javascript-->
-    <!-- begin::Alert -->
-    <?php if ($this->session->flashdata('success')) : ?>
-        <script>
-            var successfuly = '<?= $this->session->flashdata('success'); ?>';
-            Swal.fire({
-                title: 'Sukses!',
-                text: successfuly,
-                icon: 'success',
-                confirmButtonText: 'OK'
-            }).then(function(result) {
-                if (result.isConfirmed) {
-                    window.location.href = '';
-                }
-            });
-        </script>
-        <?php $this->session->unset_userdata('success'); // Menghapus session setelah ditampilkan 
-        ?>
-    <?php endif; ?>
+    <main class="masuk__form">
+        <div class="masuk__kotak" id="kotakMasuk">
+            <h2>Masuk</h2>
+            <p>Gunakan akun admin yang diberikan pengurus yayasan.</p>
 
-    <?php if ($this->session->flashdata('error')) : ?>
-        <script>
-            Swal.fire({
-                title: 'Error!',
-                text: '<?= $this->session->flashdata('error'); ?>',
-                icon: 'error',
-                confirmButtonText: 'OK'
-            }).then(function(result) {
-                if (result.isConfirmed) {
-                    window.location.href = '';
-                }
-            });
-        </script>
-        <?php $this->session->unset_userdata('error'); // Menghapus session setelah ditampilkan 
-        ?>
-    <?php endif; ?>
-    <!-- end::Alert -->
+            <form action="<?= base_url('auth/login'); ?>" method="post" id="formMasuk" data-tanpa-kunci>
+                <div class="bidang">
+                    <label for="username">Nama pengguna</label>
+                    <input type="text" id="username" name="username" required autocomplete="username"
+                           autocapitalize="none" spellcheck="false" autofocus>
+                </div>
+                <div class="bidang">
+                    <label for="password">Kata sandi</label>
+                    <div class="sandi">
+                        <input type="password" id="password" name="password" required autocomplete="current-password">
+                        <button type="button" id="lihatSandi" aria-label="Tampilkan kata sandi" aria-pressed="false">
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="tbl tbl--utama tbl--blok" id="tombolMasuk" style="padding:13px 16px;font-size:.95rem;margin-top:6px">Masuk</button>
+            </form>
 
+            <a class="masuk__kembali" href="<?= base_url(); ?>">&larr; Kembali ke situs yayasan</a>
+        </div>
+    </main>
+</div>
+
+<script>
+window.ADMIN_PESAN = <?= json_encode(['sukses' => $bersih($pesan_sukses), 'galat' => $bersih($pesan_galat)], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+</script>
+<script src="<?= base_url('assets/admin/admin.js?v=' . $v_js); ?>"></script>
+<script>
+(function () {
+    var galat = (window.ADMIN_PESAN || {}).galat;
+    var kotak = document.getElementById('kotakMasuk');
+    var sandi = document.getElementById('password');
+
+    if (galat) {
+        if (kotak && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            kotak.classList.add('goyang');
+            setTimeout(function () { kotak.classList.remove('goyang'); }, 450);
+        }
+        if (sandi) { sandi.focus(); }
+    }
+
+    var lihat = document.getElementById('lihatSandi');
+    if (lihat && sandi) {
+        lihat.addEventListener('click', function () {
+            var buka = sandi.type === 'password';
+            sandi.type = buka ? 'text' : 'password';
+            lihat.setAttribute('aria-pressed', buka ? 'true' : 'false');
+            lihat.setAttribute('aria-label', buka ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi');
+            sandi.focus();
+        });
+    }
+
+    var form = document.getElementById('formMasuk');
+    if (form) {
+        form.addEventListener('submit', function () {
+            var b = document.getElementById('tombolMasuk');
+            if (b) { b.disabled = true; b.textContent = 'Memeriksa…'; }
+        });
+    }
+})();
+</script>
 </body>
-<!--end::Body-->
-
 </html>

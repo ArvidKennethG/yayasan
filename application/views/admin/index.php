@@ -1,89 +1,226 @@
-<!--begin::Root-->
-<div class="d-flex flex-column flex-root">
-    <!--begin::Content-->
-    <div class="content d-flex flex-column flex-column-fluid" id="kt_content">
-        <!--begin::Container-->
-        <div id="kt_content_container" class="container-xxl">
-            <!--begin::Row-->
-            <div class="row g-5 g-xl-8">
-                <div class="col-xl-4">
-                    <!--begin::Statistics Widget 5-->
-                    <a href="#" class="card bg-danger hoverable card-xl-stretch mb-xl-8">
-                        <!--begin::Body-->
-                        <div class="card-body">
-                            <!--begin::Svg Icon | path: icons/duotune/ecommerce/ecm002.svg-->
-                            <span class="svg-icon svg-icon-white svg-icon-3x ms-n1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                    <path d="M21 10H13V11C13 11.6 12.6 12 12 12C11.4 12 11 11.6 11 11V10H3C2.4 10 2 10.4 2 11V13H22V11C22 10.4 21.6 10 21 10Z" fill="black" />
-                                    <path opacity="0.3" d="M12 12C11.4 12 11 11.6 11 11V3C11 2.4 11.4 2 12 2C12.6 2 13 2.4 13 3V11C13 11.6 12.6 12 12 12Z" fill="black" />
-                                    <path opacity="0.3" d="M18.1 21H5.9C5.4 21 4.9 20.6 4.8 20.1L3 13H21L19.2 20.1C19.1 20.6 18.6 21 18.1 21ZM13 18V15C13 14.4 12.6 14 12 14C11.4 14 11 14.4 11 15V18C11 18.6 11.4 19 12 19C12.6 19 13 18.6 13 18ZM17 18V15C17 14.4 16.6 14 16 14C15.4 14 15 14.4 15 15V18C15 18.6 15.4 19 16 19C16.6 19 17 18.6 17 18ZM9 18V15C9 14.4 8.6 14 8 14C7.4 14 7 14.4 7 15V18C7 18.6 7.4 19 8 19C8.6 19 9 18.6 9 18Z" fill="black" />
-                                </svg>
-                            </span>
-                            <!--end::Svg Icon-->
-                            <div class="text-white fw-bolder fs-2 mb-2 mt-5">
-                                <p><?php echo $daily_visits; ?></p>
-                            </div>
-                            <div class="fw-bold text-white">
-                                Daily Visits
-                            </div>
+<?php
+defined('BASEPATH') or exit('No direct script access allowed');
+
+/* ============================================================================
+   DASBOR
+   ----------------------------------------------------------------------------
+   Controller hanya mengirim tiga angka kunjungan ($daily_visits,
+   $monthly_visits, $yearly_visits). Ringkasan lainnya — grafik 14 hari,
+   pendaftar baru, pesan belum dibaca, berita terakhir — dihitung langsung di
+   sini dengan kueri ringan, supaya Admin.php tidak perlu diubah.
+   Setiap kueri memeriksa dulu apakah tabelnya ada.
+   ========================================================================== */
+
+$CI    =& get_instance();
+$db    = $CI->db;
+$peran = (string) $CI->session->userdata('role');
+$super = in_array($peran, ['default', 'administrator'], TRUE);
+$unit  = ['admin_tk' => 'TK', 'admin_sd' => 'SD', 'admin_smp' => 'SMP', 'admin_sma' => 'SMA', 'admin_ucb' => 'UCB'];
+$jenjang_unit = isset($unit[$peran]) ? $unit[$peran] : NULL;
+
+/* ---- Kunjungan 14 hari terakhir ---- */
+$hari = [];
+for ($i = 13; $i >= 0; $i--) { $hari[date('Y-m-d', strtotime("-$i day"))] = 0; }
+if ($db->table_exists('visitor_logs')) {
+    $rows = $db->select('visit_date, COUNT(*) AS n', FALSE)
+               ->where('visit_date >=', array_keys($hari)[0])
+               ->group_by('visit_date')->get('visitor_logs')->result_array();
+    foreach ($rows as $r) { if (isset($hari[$r['visit_date']])) { $hari[$r['visit_date']] = (int) $r['n']; } }
+}
+$puncak = max(1, max($hari));
+$nama_hari = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+
+/* ---- Ringkasan isi ---- */
+$jml = [
+    'berita'   => adm_hitung('berita'),
+    'galeri'   => adm_hitung('galeri'),
+    'video'    => adm_hitung('video_kegiatan'),
+    'struktur' => adm_hitung('struktur_organisasi'),
+];
+// Hanya dari tabel `pendaftaran`. Tabel lama pendaftaran_sd dan pendaftaran_tk
+// tidak lagi dihitung karena halamannya sudah tidak ada di panel.
+$daftar_baru = (int) adm_hitung('pendaftaran', $jenjang_unit ? ['status' => 'Baru', 'jenjang' => $jenjang_unit] : ['status' => 'Baru']);
+$pesan_baru = $super ? (int) adm_hitung('pesan_kontak', ['status' => 'Belum Dibaca']) : 0;
+$pelanggan  = $super ? (int) adm_hitung('newsletter_subscribers', ['status' => 'Aktif']) : 0;
+
+/* ---- Pendaftar terbaru ---- */
+$pendaftar = [];
+if ($db->table_exists('pendaftaran')) {
+    if ($jenjang_unit) { $db->where('jenjang', $jenjang_unit); }
+    $pendaftar = $db->order_by('id_pendaftaran', 'DESC')->limit(5)->get('pendaftaran')->result_array();
+}
+
+/* ---- Berita terbaru ---- */
+$berita_akhir = [];
+if ($super && $db->table_exists('berita')) {
+    $berita_akhir = $db->order_by('tanggal_post', 'DESC')->limit(4)->get('berita')->result_array();
+}
+
+$jam = (int) date('G');
+$salam = $jam < 11 ? 'Selamat pagi' : ($jam < 15 ? 'Selamat siang' : ($jam < 19 ? 'Selamat sore' : 'Selamat malam'));
+$bulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+$hari_ini = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][(int) date('w')] . ', ' . date('j') . ' ' . $bulan[(int) date('n')] . ' ' . date('Y');
+?>
+
+<section class="sapa">
+    <div>
+        <div class="sapa__tanggal"><?= adm_e($hari_ini); ?></div>
+        <h1><?= adm_e($salam); ?>, <?= adm_e($CI->session->userdata('username')); ?></h1>
+        <p>
+            <?php if ($daftar_baru || $pesan_baru): ?>
+                Ada <?= $daftar_baru ? '<strong style="color:#fff">' . $daftar_baru . ' pendaftar baru</strong>' : ''; ?><?= $daftar_baru && $pesan_baru ? ' dan ' : ''; ?><?= $pesan_baru ? '<strong style="color:#fff">' . $pesan_baru . ' pesan belum dibaca</strong>' : ''; ?> yang menunggu.
+            <?php else: ?>
+                Tidak ada pendaftar atau pesan yang menunggu. Semuanya sudah ditangani.
+            <?php endif; ?>
+        </p>
+    </div>
+    <div class="kepala__aksi">
+        <?php if ($super): ?>
+            <a class="tbl tbl--emas" href="<?= base_url('admin/berita#tambah'); ?>"><?= adm_ikon('tambah', 16); ?> Tulis berita</a>
+        <?php endif; ?>
+        <a class="tbl tbl--garis" href="<?= base_url(); ?>" target="_blank" rel="noopener"><?= adm_ikon('situs', 16); ?> Lihat situs</a>
+    </div>
+</section>
+
+<div class="angka">
+    <div class="angka__item angka__item--sorot">
+        <span class="angka__label"><?= adm_ikon('orang', 15); ?> Kunjungan hari ini</span>
+        <span class="angka__nilai"><?= number_format((int) $daily_visits, 0, ',', '.'); ?></span>
+        <span class="angka__catatan">pengunjung unik</span>
+    </div>
+    <div class="angka__item">
+        <span class="angka__label"><?= adm_ikon('grafik', 15); ?> Bulan ini</span>
+        <span class="angka__nilai"><?= number_format((int) $monthly_visits, 0, ',', '.'); ?></span>
+        <span class="angka__catatan"><?= adm_e($bulan[(int) date('n')] . ' ' . date('Y')); ?></span>
+    </div>
+    <div class="angka__item">
+        <span class="angka__label"><?= adm_ikon('grafik', 15); ?> Tahun ini</span>
+        <span class="angka__nilai"><?= number_format((int) $yearly_visits, 0, ',', '.'); ?></span>
+        <span class="angka__catatan">sejak 1 Januari <?= date('Y'); ?></span>
+    </div>
+    <?php if ($super || $jenjang_unit): ?>
+        <a class="angka__item" href="<?= base_url('admin/pendaftaran_terpadu?status=Baru'); ?>">
+            <span class="angka__label"><?= adm_ikon('daftar', 15); ?> Pendaftar baru</span>
+            <span class="angka__nilai"><?= $daftar_baru; ?></span>
+            <span class="angka__catatan">belum dihubungi</span>
+        </a>
+    <?php endif; ?>
+    <?php if ($super): ?>
+        <a class="angka__item" href="<?= base_url('admin/pesan_kontak'); ?>">
+            <span class="angka__label"><?= adm_ikon('pesan', 15); ?> Pesan belum dibaca</span>
+            <span class="angka__nilai"><?= $pesan_baru; ?></span>
+            <span class="angka__catatan"><?= $pelanggan; ?> pelanggan newsletter aktif</span>
+        </a>
+    <?php endif; ?>
+</div>
+
+<div class="kisi kisi--utama">
+    <div class="kisi">
+        <section class="kartu">
+            <div class="kartu__kepala">
+                <h3>Kunjungan 14 hari terakhir</h3>
+                <span class="cap cap--polos"><?= number_format(array_sum($hari), 0, ',', '.'); ?> kunjungan</span>
+            </div>
+            <div class="kartu__isi" style="padding-top:6px">
+                <div class="grafik" role="img" aria-label="Grafik batang jumlah kunjungan per hari selama 14 hari terakhir">
+                    <?php foreach ($hari as $tgl => $n):
+                        $t = round($n / $puncak * 100); $w = strtotime($tgl); ?>
+                        <div class="grafik__batang" style="--t:<?= $t; ?>%" title="<?= adm_e(adm_tgl($tgl, FALSE)); ?>: <?= $n; ?> kunjungan">
+                            <span style="height:<?= $t; ?>%"></span>
+                            <b><?= $n ?: ''; ?></b>
+                            <i><?= $tgl === date('Y-m-d') ? 'Ini' : $nama_hari[(int) date('w', $w)] . ' ' . date('j', $w); ?></i>
                         </div>
-                        <!--end::Body-->
-                    </a>
-                    <!--end::Statistics Widget 5-->
-                </div>
-                <div class="col-xl-4">
-                    <!--begin::Statistics Widget 5-->
-                    <a href="#" class="card bg-primary hoverable card-xl-stretch mb-xl-8">
-                        <!--begin::Body-->
-                        <div class="card-body">
-                            <!--begin::Svg Icon | path: icons/duotune/ecommerce/ecm008.svg-->
-                            <span class="svg-icon svg-icon-white svg-icon-3x ms-n1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                    <path opacity="0.3" d="M18 21.6C16.3 21.6 15 20.3 15 18.6V2.50001C15 2.20001 14.6 1.99996 14.3 2.19996L13 3.59999L11.7 2.3C11.3 1.9 10.7 1.9 10.3 2.3L9 3.59999L7.70001 2.3C7.30001 1.9 6.69999 1.9 6.29999 2.3L5 3.59999L3.70001 2.3C3.50001 2.1 3 2.20001 3 3.50001V18.6C3 20.3 4.3 21.6 6 21.6H18Z" fill="black" />
-                                    <path d="M12 12.6H11C10.4 12.6 10 12.2 10 11.6C10 11 10.4 10.6 11 10.6H12C12.6 10.6 13 11 13 11.6C13 12.2 12.6 12.6 12 12.6ZM9 11.6C9 11 8.6 10.6 8 10.6H6C5.4 10.6 5 11 5 11.6C5 12.2 5.4 12.6 6 12.6H8C8.6 12.6 9 12.2 9 11.6ZM9 7.59998C9 6.99998 8.6 6.59998 8 6.59998H6C5.4 6.59998 5 6.99998 5 7.59998C5 8.19998 5.4 8.59998 6 8.59998H8C8.6 8.59998 9 8.19998 9 7.59998ZM13 7.59998C13 6.99998 12.6 6.59998 12 6.59998H11C10.4 6.59998 10 6.99998 10 7.59998C10 8.19998 10.4 8.59998 11 8.59998H12C12.6 8.59998 13 8.19998 13 7.59998ZM13 15.6C13 15 12.6 14.6 12 14.6H10C9.4 14.6 9 15 9 15.6C9 16.2 9.4 16.6 10 16.6H12C12.6 16.6 13 16.2 13 15.6Z" fill="black" />
-                                    <path d="M15 18.6C15 20.3 16.3 21.6 18 21.6C19.7 21.6 21 20.3 21 18.6V12.5C21 12.2 20.6 12 20.3 12.2L19 13.6L17.7 12.3C17.3 11.9 16.7 11.9 16.3 12.3L15 13.6V18.6Z" fill="black" />
-                                </svg>
-                            </span>
-                            <!--end::Svg Icon-->
-                            <div class="text-white fw-bolder fs-2 mb-2 mt-5">
-                                <p><?php echo $monthly_visits; ?></p>
-                            </div>
-                            <div class="fw-bold text-white">
-                                Monthly Visits
-                            </div>
-                        </div>
-                        <!--end::Body-->
-                    </a>
-                    <!--end::Statistics Widget 5-->
-                </div>
-                <div class="col-xl-4">
-                    <!--begin::Statistics Widget 5-->
-                    <a href="#" class="card bg-success hoverable card-xl-stretch mb-5 mb-xl-8">
-                        <!--begin::Body-->
-                        <div class="card-body">
-                            <!--begin::Svg Icon | path: icons/duotune/graphs/gra005.svg-->
-                            <span class="svg-icon svg-icon-white svg-icon-3x ms-n1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                    <path opacity="0.3" d="M14 12V21H10V12C10 11.4 10.4 11 11 11H13C13.6 11 14 11.4 14 12ZM7 2H5C4.4 2 4 2.4 4 3V21H8V3C8 2.4 7.6 2 7 2Z" fill="black" />
-                                    <path d="M21 20H20V16C20 15.4 19.6 15 19 15H17C16.4 15 16 15.4 16 16V20H3C2.4 20 2 20.4 2 21C2 21.6 2.4 22 3 22H21C21.6 22 22 21.6 22 21C22 20.4 21.6 20 21 20Z" fill="black" />
-                                </svg>
-                            </span>
-                            <!--end::Svg Icon-->
-                            <div class="text-white fw-bolder fs-2 mb-2 mt-5">
-                                <p><?php echo $yearly_visits; ?></p>
-                            </div>
-                            <div class="fw-bold text-white">
-                                Yearly Visits
-                            </div>
-                        </div>
-                        <!--end::Body-->
-                    </a>
-                    <!--end::Statistics Widget 5-->
+                    <?php endforeach; ?>
                 </div>
             </div>
-            <!--end::Row-->
-        </div>
-        <!--end::Container-->
+        </section>
+
+        <?php if ($super || $jenjang_unit): ?>
+        <section class="kartu">
+            <div class="kartu__kepala">
+                <h3>Pendaftar terbaru<?= $jenjang_unit ? ' · ' . adm_e($jenjang_unit) : ''; ?></h3>
+                <a href="<?= base_url('admin/pendaftaran_terpadu'); ?>">Lihat semua &rarr;</a>
+            </div>
+            <?php if (empty($pendaftar)): ?>
+                <div class="kosong" style="padding:32px 20px">
+                    <p style="margin:0">Belum ada pendaftar yang masuk lewat formulir terpadu.</p>
+                </div>
+            <?php else: ?>
+                <div class="tabel-bungkus">
+                    <table>
+                        <thead><tr><th>Calon siswa</th><th>Jenjang</th><th>Tanggal</th><th>Status</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($pendaftar as $p): ?>
+                            <tr>
+                                <td>
+                                    <span class="utama-sel"><?= adm_e($p['nama_lengkap']); ?></span>
+                                    <span class="sub-sel"><?= adm_e($p['no_registrasi']); ?></span>
+                                </td>
+                                <td><span class="cap cap--polos cap--navy"><?= adm_e($p['jenjang']); ?></span></td>
+                                <td class="sub-sel" style="white-space:nowrap"><?= adm_tgl($p['tanggal_daftar']); ?></td>
+                                <td><span class="cap cap--<?= adm_warna_status($p['status']); ?>"><?= adm_e($p['status']); ?></span></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </section>
+        <?php endif; ?>
     </div>
-    <!--end::Content-->
+
+    <div class="kisi" style="align-content:start">
+        <?php if ($super): ?>
+        <section class="kartu">
+            <div class="kartu__kepala"><h3>Pintasan</h3></div>
+            <div class="pintasan">
+                <a href="<?= base_url('admin/berita#tambah'); ?>"><?= adm_ikon('berita'); ?> Tulis berita</a>
+                <a href="<?= base_url('admin/galeri#tambah'); ?>"><?= adm_ikon('galeri'); ?> Unggah foto</a>
+                <a href="<?= base_url('admin/video_kegiatan#tambah'); ?>"><?= adm_ikon('video'); ?> Tambah video</a>
+                <a href="<?= base_url('admin/struktur_organisasi'); ?>"><?= adm_ikon('struktur'); ?> Struktur</a>
+                <a href="<?= base_url('admin/manajemen_konten'); ?>"><?= adm_ikon('konten'); ?> Profil yayasan</a>
+                <a href="<?= base_url('backup/database'); ?>"><?= adm_ikon('unduh'); ?> Unduh cadangan</a>
+            </div>
+        </section>
+
+        <section class="kartu">
+            <div class="kartu__kepala"><h3>Isi situs</h3></div>
+            <ul class="daftar-ringkas">
+                <li><span class="isi"><strong>Berita</strong></span><span class="cap cap--polos"><?= (int) $jml['berita']; ?></span></li>
+                <li><span class="isi"><strong>Foto galeri</strong></span><span class="cap cap--polos"><?= (int) $jml['galeri']; ?></span></li>
+                <li><span class="isi"><strong>Video kegiatan</strong></span><span class="cap cap--polos"><?= (int) $jml['video']; ?></span></li>
+                <li><span class="isi"><strong>Pengurus</strong></span><span class="cap cap--polos"><?= (int) $jml['struktur']; ?></span></li>
+            </ul>
+        </section>
+
+        <section class="kartu">
+            <div class="kartu__kepala">
+                <h3>Berita terakhir</h3>
+                <a href="<?= base_url('admin/berita'); ?>">Kelola &rarr;</a>
+            </div>
+            <?php if (empty($berita_akhir)): ?>
+                <div class="kosong" style="padding:28px 20px"><p style="margin:0">Belum ada berita.</p></div>
+            <?php else: ?>
+                <ul class="daftar-ringkas">
+                    <?php foreach ($berita_akhir as $b): ?>
+                        <li>
+                            <img class="gambar-mini" src="<?= base_url('uploads/berita/' . rawurlencode($b['gambar'])); ?>" alt="" loading="lazy">
+                            <span class="isi">
+                                <strong><?= adm_e($b['judul_berita']); ?></strong>
+                                <span><?= adm_tgl($b['tanggal_post'], FALSE); ?></span>
+                            </span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </section>
+        <?php elseif (!$jenjang_unit): ?>
+        <section class="kartu">
+            <div class="kartu__kepala"><h3>Pintasan</h3></div>
+            <div class="pintasan" style="grid-template-columns:1fr">
+                <a href="<?= base_url('katalog'); ?>"><?= adm_ikon('katalog'); ?> Kelola katalog buku</a>
+            </div>
+        </section>
+        <?php endif; ?>
+    </div>
 </div>

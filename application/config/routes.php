@@ -53,6 +53,25 @@ $route['default_controller'] = 'page';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
+// ==========================================================================
+// Panel Admin TK & SD (terpisah)
+// ==========================================================================
+$route['admin-tk']           = 'admin_tk/index';
+$route['admin-tk/login']     = 'admin_tk/login';
+$route['admin-tk/logout']    = 'admin_tk/logout';
+$route['admin-tk/profil']    = 'admin_tk/profil';
+$route['admin-tk/add_konten']    = 'admin_tk/add_konten';
+$route['admin-tk/update_konten'] = 'admin_tk/update_konten';
+$route['admin-tk/delete_konten'] = 'admin_tk/delete_konten';
+
+$route['admin-sd']           = 'admin_sd/index';
+$route['admin-sd/login']     = 'admin_sd/login';
+$route['admin-sd/logout']    = 'admin_sd/logout';
+$route['admin-sd/profil']    = 'admin_sd/profil';
+$route['admin-sd/add_konten']    = 'admin_sd/add_konten';
+$route['admin-sd/update_konten'] = 'admin_sd/update_konten';
+$route['admin-sd/delete_konten'] = 'admin_sd/delete_konten';
+
 // Route SD K Citra Bangsa Mandiri
 $route['sd'] = 'sd';
 $route['sd/(:any)'] = 'sd/$1';

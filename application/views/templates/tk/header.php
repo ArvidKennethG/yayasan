@@ -782,7 +782,7 @@
         </nav>
 
         <div class="tk-header__aksi">
-            <a href="<?= base_url('tk/ppdb'); ?>" class="tk-tombol tk-tombol--utama">Daftar</a>
+            <a href="<?= base_url('admin-tk/login'); ?>" class="tk-tombol tk-tombol--utama">Login Admin</a>
             <a href="<?= base_url(); ?>" class="tk-tombol tk-tombol--kedua">Yayasan</a>
             <button class="tk-burger" id="burger" aria-label="Buka menu" aria-expanded="false" aria-controls="nav">
                 <span></span><span></span><span></span>

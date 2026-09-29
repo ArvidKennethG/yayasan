@@ -1,17 +1,6 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
-
-/* ============================================================================
-   DIALOG BERSAMA
-   ----------------------------------------------------------------------------
-   Versi lama membuat satu modal hapus untuk SETIAP baris data, ditambah satu
-   modal ubah per baris lengkap dengan CKEditor-nya sendiri. Dengan 50 berita,
-   halaman memuat 100 modal dan 50 editor sekaligus.
-
-   Sekarang cukup satu dialog konfirmasi hapus untuk seluruh panel. Tombol
-   hapus di setiap baris mengisinya lewat admin.js (atribut data-hapus).
-   Formulir tambah dan ubah ditaruh di halamannya masing-masing.
-   ========================================================================== */
+/* Dialog hapus bersama — replika admin yayasan */
 ?>
 <dialog class="dialog dialog--kecil dialog--bahaya" id="dialogHapus" aria-labelledby="dialogHapusJudul">
     <form method="post" action="">

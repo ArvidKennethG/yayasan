@@ -1,92 +1,106 @@
-<div class="content d-flex flex-column flex-column-fluid" id="kt_content">
-    <div class="post d-flex flex-column-fluid" id="kt_post">
-        <div id="kt_content_container" class="container-xxl">
-            <!-- Header Card -->
-            <div class="card mb-6">
-                <div class="card-body pt-9 pb-4">
-                    <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
-                        <div class="d-flex flex-column">
-                            <div class="d-flex align-items-center mb-2">
-                                <h1 class="text-gray-900 fs-2 fw-bolder me-1">Pelanggan Newsletter Yayasan CBIM</h1>
-                                <span class="badge badge-light-success fw-bolder ms-2 fs-8 py-1 px-3"><?= count($subscribers); ?> Subscriber</span>
-                            </div>
-                            <div class="text-muted fs-6">Kelola daftar email masyarakat yang berlangganan informasi warta dan pengumuman CBIM.</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+<?php
+defined('BASEPATH') or exit('No direct script access allowed');
 
-            <!-- Table Card -->
-            <div class="card">
-                <div class="card-body py-4">
-                    <div class="table-responsive">
-                        <table class="table align-middle table-row-dashed fs-6 gy-5" id="kt_table_newsletter">
-                            <thead>
-                                <tr class="text-start text-muted fw-bolder fs-7 text-uppercase gs-0">
-                                    <th class="w-10px">No</th>
-                                    <th>Alamat Email</th>
-                                    <th>Preferensi Unit</th>
-                                    <th>Tanggal Bergabung</th>
-                                    <th>Status</th>
-                                    <th class="text-end min-w-100px">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-gray-600 fw-bold">
-                                <?php if (!empty($subscribers)) : ?>
-                                    <?php foreach ($subscribers as $i => $row) : ?>
-                                        <tr>
-                                            <td><?= $i + 1; ?></td>
-                                            <td>
-                                                <div class="text-dark fw-bolder"><?= htmlspecialchars($row['email']); ?></div>
-                                            </td>
-                                            <td>
-                                                <span class="badge badge-light-primary"><?= htmlspecialchars($row['preferensi']); ?></span>
-                                            </td>
-                                            <td><?= date('d/m/Y H:i', strtotime($row['created_at'])); ?></td>
-                                            <td>
-                                                <span class="badge badge-light-<?= $row['status'] === 'Aktif' ? 'success' : 'secondary'; ?>">
-                                                    <?= htmlspecialchars($row['status']); ?>
-                                                </span>
-                                            </td>
-                                            <td class="text-end">
-                                                <button type="button" class="btn btn-sm btn-icon btn-light-danger" data-bs-toggle="modal" data-bs-target="#modalHapusSub<?= $row['id_subscriber']; ?>" title="Hapus">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
+/* ============================================================================
+   NEWSLETTER
+   Data: $subscribers (id_subscriber, email, preferensi, status, created_at).
+   Aksi: admin/delete_subscriber (id_subscriber).
+   Ditambah tombol "Salin email aktif" supaya daftar penerima bisa langsung
+   ditempel ke kolom BCC surel — tanpa perlu mengekspor apa pun.
+   ========================================================================== */
 
-                                                <!-- Modal Hapus Subscriber -->
-                                                <div class="modal fade" id="modalHapusSub<?= $row['id_subscriber']; ?>" tabindex="-1">
-                                                    <div class="modal-dialog modal-dialog-centered text-start">
-                                                        <div class="modal-content">
-                                                            <form action="<?= base_url('admin/delete_subscriber'); ?>" method="POST">
-                                                                <div class="modal-header">
-                                                                    <h5 class="modal-title">Hapus Subscriber</h5>
-                                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                                </div>
-                                                                <div class="modal-body">
-                                                                    <input type="hidden" name="id_subscriber" value="<?= $row['id_subscriber']; ?>" />
-                                                                    <p>Apakah Anda yakin ingin menghapus <strong><?= htmlspecialchars($row['email']); ?></strong> dari daftar newsletter?</p>
-                                                                </div>
-                                                                <div class="modal-footer">
-                                                                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                                                                    <button type="submit" class="btn btn-danger">Ya, Hapus</button>
-                                                                </div>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                <?php else : ?>
-                                    <tr>
-                                        <td colspan="6" class="text-center py-6 text-muted">Belum ada pelanggan newsletter.</td>
-                                    </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+$aktif = array_values(array_filter($subscribers, function ($s) { return $s['status'] === 'Aktif'; }));
+$prefs = [];
+foreach ($subscribers as $s) { $k = trim((string) $s['preferensi']) ?: 'Umum'; $prefs[$k] = isset($prefs[$k]) ? $prefs[$k] + 1 : 1; }
+arsort($prefs);
+?>
+
+<div class="kepala">
+    <div class="kepala__teks">
+        <p>Alamat surel pengunjung yang berlangganan kabar yayasan. Pelanggan yang berhenti berlangganan tetap tercatat dengan status <em>Unsubscribed</em> dan tidak boleh dikirimi lagi.</p>
     </div>
+    <?php if ($aktif): ?>
+    <div class="kepala__aksi">
+        <button type="button" class="tbl tbl--utama" data-salin-dari="#daftarAktif" data-salin-pesan="<?= count($aktif); ?> alamat aktif tersalin. Tempel di kolom BCC supaya alamat penerima tidak saling terlihat."><?= adm_ikon('salin', 16); ?> Salin <?= count($aktif); ?> email aktif</button>
+    </div>
+    <?php endif; ?>
 </div>
+<span id="daftarAktif" hidden><?= adm_e(implode(', ', array_map(function ($s) { return html_entity_decode($s['email'], ENT_QUOTES, 'UTF-8'); }, $aktif))); ?></span>
+
+<?php if ($subscribers): ?>
+<div class="angka">
+    <div class="angka__item angka__item--sorot">
+        <span class="angka__label"><?= adm_ikon('surat', 15); ?> Pelanggan aktif</span>
+        <span class="angka__nilai"><?= count($aktif); ?></span>
+        <span class="angka__catatan">dari <?= count($subscribers); ?> yang pernah mendaftar</span>
+    </div>
+    <?php foreach (array_slice($prefs, 0, 3, TRUE) as $k => $n): ?>
+        <div class="angka__item">
+            <span class="angka__label">Minat: <?= adm_e($k); ?></span>
+            <span class="angka__nilai"><?= $n; ?></span>
+            <span class="angka__catatan">pelanggan</span>
+        </div>
+    <?php endforeach; ?>
+</div>
+<?php endif; ?>
+
+<section class="kartu" data-tabel data-per-halaman="20">
+    <?php if (empty($subscribers)): ?>
+        <div class="kosong">
+            <?= adm_ikon('surat', 44); ?>
+            <h3>Belum ada pelanggan</h3>
+            <p>Pengunjung yang mengisi kolom langganan di situs akan tercatat di sini.</p>
+        </div>
+    <?php else: ?>
+        <div class="alat">
+            <label class="cari">
+                <span class="sr">Cari pelanggan</span>
+                <?= adm_ikon('cari', 16); ?>
+                <input type="search" data-cari placeholder="Cari alamat surel…">
+            </label>
+            <div class="saring" data-saring-kunci="status" role="group" aria-label="Saring menurut status">
+                <button type="button" data-saring-nilai="" aria-pressed="true">Semua <b><?= count($subscribers); ?></b></button>
+                <button type="button" data-saring-nilai="Aktif" aria-pressed="false">Aktif <b><?= count($aktif); ?></b></button>
+                <?php if (count($subscribers) > count($aktif)): ?>
+                    <button type="button" data-saring-nilai="Unsubscribed" aria-pressed="false">Berhenti <b><?= count($subscribers) - count($aktif); ?></b></button>
+                <?php endif; ?>
+            </div>
+            <span class="alat__kanan" data-info></span>
+        </div>
+        <div class="tabel-bungkus">
+            <table>
+                <thead>
+                    <tr>
+                        <th data-urut>Alamat surel</th>
+                        <th data-urut>Minat</th>
+                        <th data-urut>Bergabung</th>
+                        <th data-urut>Status</th>
+                        <th style="width:60px"><span class="sr">Aksi</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($subscribers as $s): ?>
+                    <tr data-baris data-status="<?= adm_e($s['status']); ?>">
+                        <td><a class="utama-sel" style="text-decoration:none" href="mailto:<?= adm_e($s['email']); ?>"><?= adm_e($s['email']); ?></a></td>
+                        <td><span class="cap cap--polos cap--emas"><?= adm_e($s['preferensi'] ?: 'Umum'); ?></span></td>
+                        <td class="sub-sel" data-nilai="<?= (int) strtotime($s['created_at']); ?>" style="white-space:nowrap"><?= adm_tgl($s['created_at']); ?></td>
+                        <td><span class="cap cap--<?= adm_warna_status($s['status']); ?>"><?= $s['status'] === 'Aktif' ? 'Aktif' : 'Berhenti'; ?></span></td>
+                        <td>
+                            <div class="aksi">
+                                <button type="button" class="ikon-tbl ikon-tbl--hapus" title="Hapus" aria-label="Hapus pelanggan"
+                                        data-hapus="<?= base_url('admin/delete_subscriber'); ?>"
+                                        data-kirim='<?= adm_e(adm_json(['id_subscriber' => $s['id_subscriber']])); ?>'
+                                        data-judul="Hapus pelanggan ini?"
+                                        data-ket="Alamat ini tidak akan menerima kabar yayasan lagi."
+                                        data-nama="<?= adm_e($s['email']); ?>"><?= adm_ikon('hapus', 15); ?></button>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <div class="kosong-cari" data-kosong-cari hidden>Tidak ada pelanggan yang cocok.</div>
+        </div>
+        <div class="halaman" data-halaman hidden><span class="halaman__teks"></span><div class="halaman__nav"></div></div>
+    <?php endif; ?>
+</section>

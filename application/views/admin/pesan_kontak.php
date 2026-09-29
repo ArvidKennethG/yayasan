@@ -1,143 +1,120 @@
-<div class="content d-flex flex-column flex-column-fluid" id="kt_content">
-    <div class="post d-flex flex-column-fluid" id="kt_post">
-        <div id="kt_content_container" class="container-xxl">
-            <!-- Header Card -->
-            <div class="card mb-6">
-                <div class="card-body pt-9 pb-4">
-                    <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
-                        <div class="d-flex flex-column">
-                            <div class="d-flex align-items-center mb-2">
-                                <h1 class="text-gray-900 fs-2 fw-bolder me-1">Pesan Masuk Kontak Website</h1>
-                                <span class="badge badge-light-danger fw-bolder ms-2 fs-8 py-1 px-3"><?= count($data_pesan); ?> Pesan</span>
-                            </div>
-                            <div class="text-muted fs-6">Daftar pertanyaan, aspirasi, dan pesan pengunjung dari formulir kontak website.</div>
-                        </div>
-                    </div>
-                </div>
+<?php
+defined('BASEPATH') or exit('No direct script access allowed');
+
+/* ============================================================================
+   PESAN MASUK
+   Data: $data_pesan (id_pesan, nama, email, subjek, pesan, ip_address,
+   status, created_at). Aksi: admin/update_status_pesan (id_pesan, status),
+   admin/delete_pesan (id_pesan).
+   Disusun seperti kotak masuk surel: pesan belum dibaca ditebalkan, klik untuk
+   membaca isi lengkap dan membalas.
+   ========================================================================== */
+
+$status_semua = ['Belum Dibaca' => 'merah', 'Sudah Dibaca' => 'kuning', 'Dibalas' => 'hijau'];
+$warna_css    = ['merah' => 'var(--merah)', 'kuning' => 'var(--kuning)', 'hijau' => 'var(--hijau)'];
+$jumlah = array_fill_keys(array_keys($status_semua), 0);
+$rekam  = [];
+foreach ($data_pesan as $p) {
+    if (isset($jumlah[$p['status']])) { $jumlah[$p['status']]++; }
+    $rekam['m' . $p['id_pesan']] = adm_dekode([
+        'id_pesan'   => $p['id_pesan'],
+        'status'     => $p['status'],
+        'nama'       => $p['nama'],
+        'email'      => $p['email'],
+        'subjek'     => $p['subjek'],
+        'pesan'      => $p['pesan'],
+        'ip_address' => $p['ip_address'],
+        'waktu'      => adm_tgl($p['created_at']),
+        '_balas'     => $p['email'] . '?subject=' . rawurlencode('Balasan: ' . html_entity_decode($p['subjek'], ENT_QUOTES, 'UTF-8')),
+    ]);
+}
+?>
+
+<div class="kepala">
+    <div class="kepala__teks">
+        <p>Pertanyaan dan pesan dari formulir Kontak situs yayasan. Tandai <strong>Dibalas</strong> setelah menjawab supaya pengurus lain tahu pesan itu sudah ditangani.</p>
+    </div>
+</div>
+
+<section class="kartu" data-tabel data-per-halaman="20">
+    <?php if (empty($data_pesan)): ?>
+        <div class="kosong">
+            <?= adm_ikon('pesan', 44); ?>
+            <h3>Kotak masuk kosong</h3>
+            <p>Pesan yang dikirim pengunjung lewat halaman Kontak akan muncul di sini.</p>
+        </div>
+    <?php else: ?>
+        <div class="alat">
+            <label class="cari">
+                <span class="sr">Cari pesan</span>
+                <?= adm_ikon('cari', 16); ?>
+                <input type="search" data-cari placeholder="Cari pengirim, subjek, atau isi pesan…">
+            </label>
+            <div class="saring" data-saring-kunci="status" role="group" aria-label="Saring menurut status">
+                <button type="button" data-saring-nilai="" aria-pressed="true">Semua <b><?= count($data_pesan); ?></b></button>
+                <?php foreach ($status_semua as $st => $w): if (!$jumlah[$st]) { continue; } ?>
+                    <button type="button" data-saring-nilai="<?= $st; ?>" aria-pressed="false"><?= $st; ?> <b><?= $jumlah[$st]; ?></b></button>
+                <?php endforeach; ?>
             </div>
-
-            <!-- Table Card -->
-            <div class="card">
-                <div class="card-body py-4">
-                    <div class="table-responsive">
-                        <table class="table align-middle table-row-dashed fs-6 gy-5" id="kt_table_pesan">
-                            <thead>
-                                <tr class="text-start text-muted fw-bolder fs-7 text-uppercase gs-0">
-                                    <th class="w-10px">No</th>
-                                    <th>Pengirim</th>
-                                    <th>Email</th>
-                                    <th>Subjek</th>
-                                    <th>Tanggal</th>
-                                    <th>Status</th>
-                                    <th class="text-end min-w-100px">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-gray-600 fw-bold">
-                                <?php if (!empty($data_pesan)) : ?>
-                                    <?php foreach ($data_pesan as $i => $row) : ?>
-                                        <tr>
-                                            <td><?= $i + 1; ?></td>
-                                            <td>
-                                                <div class="text-dark fw-bolder"><?= htmlspecialchars($row['nama']); ?></div>
-                                                <small class="text-muted">IP: <?= htmlspecialchars($row['ip_address']); ?></small>
-                                            </td>
-                                            <td>
-                                                <a href="mailto:<?= htmlspecialchars($row['email']); ?>" class="text-primary">
-                                                    <?= htmlspecialchars($row['email']); ?>
-                                                </a>
-                                            </td>
-                                            <td><?= htmlspecialchars($row['subjek']); ?></td>
-                                            <td><?= date('d/m/Y H:i', strtotime($row['created_at'])); ?></td>
-                                            <td>
-                                                <?php
-                                                    $badge = 'danger';
-                                                    if ($row['status'] === 'Sudah Dibaca') $badge = 'warning';
-                                                    elseif ($row['status'] === 'Dibalas') $badge = 'success';
-                                                ?>
-                                                <span class="badge badge-light-<?= $badge; ?>"><?= htmlspecialchars($row['status']); ?></span>
-                                            </td>
-                                            <td class="text-end">
-                                                <button type="button" class="btn btn-sm btn-icon btn-light-primary me-1" data-bs-toggle="modal" data-bs-target="#modalLihatPesan<?= $row['id_pesan']; ?>" title="Lihat Pesan">
-                                                    <i class="bi bi-eye"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-icon btn-light-danger" data-bs-toggle="modal" data-bs-target="#modalHapusPesan<?= $row['id_pesan']; ?>" title="Hapus">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-
-                                                <!-- Modal Lihat Pesan -->
-                                                <div class="modal fade" id="modalLihatPesan<?= $row['id_pesan']; ?>" tabindex="-1">
-                                                    <div class="modal-dialog modal-dialog-centered text-start">
-                                                        <div class="modal-content">
-                                                            <div class="modal-header">
-                                                                <h5 class="modal-title"><?= htmlspecialchars($row['subjek']); ?></h5>
-                                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                            </div>
-                                                            <div class="modal-body">
-                                                                <div class="mb-4">
-                                                                    <div class="text-muted fs-7">Pengirim:</div>
-                                                                    <div class="fw-bold fs-6 text-dark"><?= htmlspecialchars($row['nama']); ?> &lt;<?= htmlspecialchars($row['email']); ?>&gt;</div>
-                                                                    <small class="text-muted"><?= date('d F Y, H:i', strtotime($row['created_at'])); ?></small>
-                                                                </div>
-                                                                <div class="p-4 bg-light rounded border text-dark fs-6 lh-base mb-4">
-                                                                    <?= nl2br(htmlspecialchars($row['pesan'])); ?>
-                                                                </div>
-
-                                                                <form action="<?= base_url('admin/update_status_pesan'); ?>" method="POST">
-                                                                    <input type="hidden" name="id_pesan" value="<?= $row['id_pesan']; ?>" />
-                                                                    <div class="mb-3">
-                                                                        <label class="form-label fw-bold">Ubah Status:</label>
-                                                                        <select name="status" class="form-select">
-                                                                            <option value="Belum Dibaca" <?= $row['status'] === 'Belum Dibaca' ? 'selected' : ''; ?>>Belum Dibaca</option>
-                                                                            <option value="Sudah Dibaca" <?= $row['status'] === 'Sudah Dibaca' ? 'selected' : ''; ?>>Sudah Dibaca</option>
-                                                                            <option value="Dibalas" <?= $row['status'] === 'Dibalas' ? 'selected' : ''; ?>>Dibalas</option>
-                                                                        </select>
-                                                                    </div>
-                                                                    <div class="d-flex justify-content-between align-items-center">
-                                                                        <a href="mailto:<?= htmlspecialchars($row['email']); ?>?subject=Balasan:%20<?= urlencode($row['subjek']); ?>" class="btn btn-sm btn-primary">
-                                                                            <i class="bi bi-reply-fill me-1"></i> Balas via Email
-                                                                        </a>
-                                                                        <button type="submit" class="btn btn-sm btn-success">Simpan Status</button>
-                                                                    </div>
-                                                                </form>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <!-- Modal Hapus Pesan -->
-                                                <div class="modal fade" id="modalHapusPesan<?= $row['id_pesan']; ?>" tabindex="-1">
-                                                    <div class="modal-dialog modal-dialog-centered text-start">
-                                                        <div class="modal-content">
-                                                            <form action="<?= base_url('admin/delete_pesan'); ?>" method="POST">
-                                                                <div class="modal-header">
-                                                                    <h5 class="modal-title">Hapus Pesan</h5>
-                                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                                </div>
-                                                                <div class="modal-body">
-                                                                    <input type="hidden" name="id_pesan" value="<?= $row['id_pesan']; ?>" />
-                                                                    <p>Apakah Anda yakin ingin menghapus pesan dari <strong><?= htmlspecialchars($row['nama']); ?></strong>?</p>
-                                                                </div>
-                                                                <div class="modal-footer">
-                                                                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                                                                    <button type="submit" class="btn btn-danger">Ya, Hapus</button>
-                                                                </div>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                <?php else : ?>
-                                    <tr>
-                                        <td colspan="7" class="text-center py-6 text-muted">Belum ada pesan masuk.</td>
-                                    </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
+            <span class="alat__kanan" data-info></span>
+        </div>
+        <div>
+            <?php foreach ($data_pesan as $p): $baru = $p['status'] === 'Belum Dibaca'; ?>
+                <div class="pesan-baris<?= $baru ? ' pesan-baris--baru' : ''; ?>" data-baris data-status="<?= adm_e($p['status']); ?>"
+                     data-buka="dialogBaca" data-rekam="m<?= (int) $p['id_pesan']; ?>" tabindex="0" role="button"
+                     aria-label="Baca pesan dari <?= adm_e($p['nama']); ?>: <?= adm_e($p['subjek']); ?>">
+                    <span class="pesan__bulat" aria-hidden="true"><?= adm_e(mb_strtoupper(mb_substr(html_entity_decode($p['nama'], ENT_QUOTES, 'UTF-8'), 0, 1, 'UTF-8'), 'UTF-8')); ?></span>
+                    <div class="pesan__isi">
+                        <div class="pesan__atas">
+                            <span class="pesan__nama"><?= adm_e($p['nama']); ?></span>
+                            <span class="cap cap--<?= adm_warna_status($p['status']); ?>"><?= adm_e($p['status']); ?></span>
+                            <span class="pesan__waktu"><?= adm_tgl($p['created_at']); ?></span>
+                        </div>
+                        <span class="pesan__subjek"><?= adm_e($p['subjek']); ?></span>
+                        <span class="pesan__potong"><?= adm_e(adm_ringkas($p['pesan'], 140)); ?></span>
                     </div>
+                    <button type="button" class="ikon-tbl ikon-tbl--hapus" title="Hapus" aria-label="Hapus pesan"
+                            data-hapus="<?= base_url('admin/delete_pesan'); ?>"
+                            data-kirim='<?= adm_e(adm_json(['id_pesan' => $p['id_pesan']])); ?>'
+                            data-judul="Hapus pesan ini?"
+                            data-nama="<?= adm_e($p['nama'] . ' — ' . $p['subjek']); ?>"><?= adm_ikon('hapus', 15); ?></button>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <div class="kosong-cari" data-kosong-cari hidden>Tidak ada pesan yang cocok.</div>
+        <div class="halaman" data-halaman hidden><span class="halaman__teks"></span><div class="halaman__nav"></div></div>
+    <?php endif; ?>
+</section>
+
+<script type="application/json" id="data-halaman"><?= adm_json($rekam); ?></script>
+
+<dialog class="dialog dialog--lebar" id="dialogBaca" aria-labelledby="judulBaca">
+    <form action="<?= base_url('admin/update_status_pesan'); ?>" method="post">
+        <div class="dialog__kepala">
+            <div>
+                <h2 id="judulBaca" data-tampil="subjek">—</h2>
+                <p><strong data-tampil="nama"></strong> &lt;<span data-tampil="email"></span>&gt; &middot; <span data-tampil="waktu"></span></p>
+            </div>
+            <button type="button" class="dialog__tutup" data-tutup aria-label="Tutup"><?= adm_ikon('tutup', 18); ?></button>
+        </div>
+        <div class="dialog__isi">
+            <input type="hidden" name="id_pesan">
+            <div class="pesan__teks" data-tampil="pesan"></div>
+            <p class="petunjuk">Dikirim dari alamat IP <span data-tampil="ip_address"></span></p>
+
+            <div class="bidang" style="margin-top:18px">
+                <span class="label">Status pesan</span>
+                <div class="pilih-status">
+                    <?php foreach ($status_semua as $st => $w): ?>
+                        <label><input type="radio" name="status" value="<?= $st; ?>"><span style="--w:<?= $warna_css[$w]; ?>"><?= $st; ?></span></label>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>
-    </div>
-</div>
+        <div class="dialog__kaki">
+            <a class="tbl tbl--emas kiri" href="#" data-href="_balas" data-awalan="mailto:"><?= adm_ikon('balas', 16); ?> Balas lewat surel</a>
+            <button type="button" class="tbl tbl--garis" data-tutup>Tutup</button>
+            <button type="submit" class="tbl tbl--utama">Simpan status</button>
+        </div>
+    </form>
+</dialog>

@@ -425,7 +425,7 @@ img, svg { max-width: 100%; }
 .pengurus { margin: 0; }
 .pengurus__foto {
     position: relative; aspect-ratio: 1; overflow: hidden;
-    border-radius: var(--r-besar); background: var(--krem-tua);
+    border-radius: 50%; background: var(--krem-tua);
     border: 1px solid var(--garis); margin-bottom: 15px;
 }
 .pengurus__foto img { width: 100%; height: 100%; object-fit: cover; display: block; filter: grayscale(.18); transition: filter .3s ease; }
