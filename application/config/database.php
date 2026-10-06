@@ -75,10 +75,11 @@ $query_builder = TRUE;
 
 $db['default'] = array(
 	'dsn'	=> '',
-	'hostname' => 'localhost',
-	'username' => 'root',
-	'password' => '',
-	'database' => 'u1711594_yayasan_v2',
+	'hostname' => getenv('DB_HOST') ? getenv('DB_HOST') : 'localhost',
+	'username' => getenv('DB_USER') ? getenv('DB_USER') : 'root',
+	'password' => getenv('DB_PASS') !== false ? getenv('DB_PASS') : '',
+	'database' => getenv('DB_NAME') ? getenv('DB_NAME') : 'u1711594_yayasan_v2',
+	'port'     => getenv('DB_PORT') ? (int)getenv('DB_PORT') : 3306,
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
 	'pconnect' => FALSE,

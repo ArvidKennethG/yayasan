@@ -30,3 +30,18 @@ user_guide_src/cilexer/pycilexer.egg-info/*
 *.sublime-project
 /tests/tests/
 /tests/results/
+
+# Dependencies & Build
+node_modules/
+.vercel/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS & Logs
+Thumbs.db
+Desktop.ini
+.vscode/
+*.log
