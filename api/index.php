@@ -1,13 +1,13 @@
 <?php
-// Set default Content-Type
+// Pastikan Content-Type disetel text/html
 header('Content-Type: text/html; charset=utf-8');
 
-// Display errors for debugging
+// Tampilkan error PHP untuk mempermudah diagnosa
 ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
 
-// Tangkap fatal error sebelum Lambda crash
+// Tangkap fatal error sebelum Vercel Lambda menghentikan container
 register_shutdown_function(function() {
     $error = error_get_last();
     if ($error !== NULL && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
@@ -23,9 +23,16 @@ register_shutdown_function(function() {
     }
 });
 
-// Cek apakah database environment variables sudah disetel jika berjalan di Vercel
-$db_host = getenv('DB_HOST');
-if (getenv('VERCEL') && (empty($db_host) || $db_host === 'localhost')) {
+// Deteksi apakah sedang berjalan di Vercel
+$is_vercel = !empty(getenv('VERCEL'))
+    || !empty($_ENV['VERCEL'])
+    || !empty($_SERVER['VERCEL'])
+    || (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'vercel.app') !== false);
+
+$db_host = getenv('DB_HOST') ?: (isset($_ENV['DB_HOST']) ? $_ENV['DB_HOST'] : (isset($_SERVER['DB_HOST']) ? $_SERVER['DB_HOST'] : ''));
+
+// Jika berjalan di Vercel dan DB_HOST belum diatur
+if ($is_vercel && (empty($db_host) || $db_host === 'localhost')) {
     http_response_code(200);
     ?>
     <!DOCTYPE html>
@@ -94,4 +101,4 @@ if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROT
 }
 
 // Eksekusi CodeIgniter front controller
-require __DIR__ . '/../index.php';
+require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'index.php';
