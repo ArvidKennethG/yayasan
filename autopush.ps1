@@ -25,8 +25,9 @@ git add .
 Write-Host "[2/3] Menyimpan commit: '$Pesan'..." -ForegroundColor Yellow
 git commit -m "$Pesan"
 
-Write-Host "[3/3] Mendorong ke GitHub (branch main)..." -ForegroundColor Yellow
+Write-Host "[3/3] Mendorong ke GitHub (branch main & master)..." -ForegroundColor Yellow
 git push origin main
+git push origin main:master
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "`n========================================================" -ForegroundColor Green

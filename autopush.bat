@@ -22,8 +22,9 @@ git add .
 echo [2/3] Menyimpan commit ...
 git commit -m "%msg%"
 
-echo [3/3] Mendorong ke GitHub (git push origin main) ...
+echo [3/3] Mendorong ke GitHub (branch main & master) ...
 git push origin main
+git push origin main:master
 
 if %errorlevel% equ 0 (
     echo.
